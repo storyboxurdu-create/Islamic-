@@ -26,6 +26,13 @@ FONT_SOURCES = [
     ),
 ]
 
+# Public domain / CC0 calm atmospheric & moody instrumental tracks (auto-downloaded at runtime)
+MOODY_MUSIC_SOURCES = [
+    "https://archive.org/download/relaxing-ambient-piano-music/Relaxing%20Ambient%20Piano%20Music.mp3",
+    "https://archive.org/download/DarkAmbientMusic/Dark%20Ambient%201.mp3",
+    "https://archive.org/download/SadPianoInstrumental/Sad%20Piano%20Instrumental.mp3",
+]
+
 
 def load_history() -> list[str]:
     if HISTORY_FILE.exists():
@@ -246,17 +253,50 @@ def process_continuous_voice(raw_mp3: Path, clean_wav: Path) -> float:
     return get_media_duration(clean_wav)
 
 
-def build_ambient_music_track(duration_sec: float, out_wav: Path) -> None:
-    # Smooth moody minor-warm pad without tremolo buzz/hiss
+def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path) -> None:
     dur = max(10.0, round(duration_sec + 1.0, 2))
+    shuffled_sources = list(MOODY_MUSIC_SOURCES)
+    random.shuffle(shuffled_sources)
+
+    for idx, src_url in enumerate(shuffled_sources):
+        dl_path = work_dir / f"moody_track_{idx}.mp3"
+        req = urllib.request.Request(src_url, headers={"User-Agent": "Mozilla/5.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=25) as resp, open(dl_path, "wb") as out:
+                out.write(resp.read())
+            if dl_path.exists() and dl_path.stat().st_size > 50_000:
+                start_offset = random.uniform(5.0, 25.0)
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-stream_loop",
+                    "-1",
+                    "-ss",
+                    f"{start_offset:.2f}",
+                    "-i",
+                    str(dl_path),
+                    "-t",
+                    f"{dur}",
+                    "-af",
+                    f"lowpass=f=1800,volume=0.22,afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5",
+                    "-ar",
+                    "44100",
+                    "-ac",
+                    "1",
+                    str(out_wav),
+                ]
+                res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if res.returncode == 0 and out_wav.exists() and out_wav.stat().st_size > 10_000:
+                    print(f"Loaded moody music track from: {src_url}")
+                    return
+        except Exception as e:
+            print(f"Moody music download failed ({src_url}): {e}")
+
+    # Natural dark room/rain texture fallback (never pure sine wave)
     fc = (
-        f"sine=frequency=110:sample_rate=44100:duration={dur}[n1];"
-        f"sine=frequency=164.81:sample_rate=44100:duration={dur}[n2];"
-        f"sine=frequency=220:sample_rate=44100:duration={dur}[n3];"
-        f"sine=frequency=277.18:sample_rate=44100:duration={dur}[n4];"
-        "[n1][n2][n3][n4]amix=inputs=4:weights='0.45 0.30 0.20 0.12',"
-        "lowpass=f=480,highpass=f=75,volume=0.11,"
-        f"afade=t=in:st=0:d=1.5,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5"
+        f"anoisesrc=color=brown:sample_rate=44100:duration={dur}:amplitude=0.18,"
+        "lowpass=f=520,highpass=f=90,"
+        f"afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5"
     )
     cmd = [
         "ffmpeg",
@@ -281,7 +321,7 @@ def mix_voice_and_music(voice_wav: Path, music_wav: Path, mixed_wav: Path) -> No
         "-i",
         str(music_wav),
         "-filter_complex",
-        "[0:a]volume=1.12[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-15:TP=-1.5:LRA=10[aout]",
+        "[0:a]volume=1.05[v];[1:a]volume=0.85[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2:weights='1.0 0.85'[aout]",
         "-map",
         "[aout]",
         "-ar",
@@ -457,7 +497,6 @@ def burn_ass_captions(
     font_name: str,
     font_file: str,
 ) -> None:
-    # Clean, balanced professional Urdu captions with crisp outline & subtle fade (no box/stretch)
     header = (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
@@ -542,10 +581,10 @@ def main() -> None:
     total_voice_dur = process_continuous_voice(raw_mp3, full_voice_wav)
     total_voice_dur = max(12.0, round(total_voice_dur, 2))
 
-    ambient_music_wav = work_dir / "ambient_music.wav"
+    moody_music_wav = work_dir / "moody_music.wav"
     mixed_audio_wav = work_dir / "mixed_audio.wav"
-    build_ambient_music_track(total_voice_dur, ambient_music_wav)
-    mix_voice_and_music(full_voice_wav, ambient_music_wav, mixed_audio_wav)
+    prepare_moody_music_track(total_voice_dur, work_dir, moody_music_wav)
+    mix_voice_and_music(full_voice_wav, moody_music_wav, mixed_audio_wav)
 
     word_counts = [max(3, len(x["text"].split())) for x in lines]
     total_words = sum(word_counts) or len(lines)
