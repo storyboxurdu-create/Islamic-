@@ -1,23 +1,29 @@
-[
-  "fallback_01_dil_aur_waqt",
-  "story_01_bilal_aur_waqt",
-  "urdu_story_02_zuban_aur_fitna",
-  "urdu_story_01_waqt_aur_dil",
-  "sabaq_02_be_adabi_aur_shor",
-  "aakhri_zamana_social_media_fitna",
-  "aakhri_zamana_digital_blindness",
-  "aakhri_zamana_dil_ka_sukoon",
-  "aakhri_zamana_ghflat_aur_roshni",
-  "aakhri_zamana_bechaini_aur_zikr",
-  "aakhri_zamana_be_basi_aur_noor",
-  "aakhri_zamana_khoobsurat_sach_03",
-  "aakhri_zamana_dil_ka_bhoojh_04",
-  "aakhri_zamana_sacha_sabaq_05",
-  "aakhri_zamana_gehra_sabaq_06",
-  "aakhri_zamana_dil_ka_safeer_07",
-  "aakhri_zamana_roohani_bidaari_08",
-  "aakhri_zamana_sacha_ehsas_09",
-  "aakhri_zamana_choti_si_baat_10",
-  "aakhri_zamana_gehri_soch_11",
-  "sabaq_583172"
-]
+{
+  "used_ids": [
+    "fallback_01_dil_aur_waqt",
+    "story_01_bilal_aur_waqt",
+    "urdu_story_02_zuban_aur_fitna",
+    "urdu_story_01_waqt_aur_dil",
+    "sabaq_02_be_adabi_aur_shor",
+    "aakhri_zamana_social_media_fitna",
+    "aakhri_zamana_digital_blindness",
+    "aakhri_zamana_dil_ka_sukoon",
+    "aakhri_zamana_ghflat_aur_roshni",
+    "aakhri_zamana_bechaini_aur_zikr",
+    "aakhri_zamana_be_basi_aur_noor",
+    "aakhri_zamana_khoobsurat_sach_03",
+    "aakhri_zamana_dil_ka_bhoojh_04",
+    "aakhri_zamana_sacha_sabaq_05",
+    "aakhri_zamana_gehra_sabaq_06",
+    "aakhri_zamana_dil_ka_safeer_07",
+    "aakhri_zamana_roohani_bidaari_08",
+    "aakhri_zamana_sacha_ehsas_09",
+    "aakhri_zamana_choti_si_baat_10",
+    "aakhri_zamana_gehri_soch_11",
+    "sabaq_583172",
+    "sabaq_173629"
+  ],
+  "recent_summaries": [
+    "دجال کے عظیم فتنے، اس کی جھوٹی خدائی اور اس دور میں ایمان بچانے کی حقیقت پر مبنی سبق آموز بیان۔"
+  ]
+}
