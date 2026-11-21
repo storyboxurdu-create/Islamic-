@@ -13,6 +13,13 @@ HISTORY_FILE = Path("islamic_history.json")
 OUTPUT_VIDEO = Path("final_islamic_short.mp4")
 OUTPUT_META = Path("video_meta.json")
 
+LOCAL_MUSIC_CANDIDATES = [
+    Path("assets/moody_music.mp3"),
+    Path("assets/background_music.mp3"),
+    Path("moody_music.mp3"),
+    Path("background_music.mp3"),
+]
+
 FONT_SOURCES = [
     (
         "Noto Naskh Arabic",
@@ -101,31 +108,33 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
 
     recent_list = ", ".join(used_ids[-20:]) if used_ids else "none"
     prompt = (
-        "You are a wise, warm Urdu mentor speaking naturally on a 32-38 second vertical YouTube Short about 'Aakhri Zamana' (End Times). "
-        "Do NOT write a story or fictional character narrative. Write ONE cohesive, heartfelt, direct 'Aakhri Zamana' realization/lesson in proper URDU SCRIPT (اردو رسم الخط), "
-        "followed by a practical daily tip. "
-        "CRITICAL RULES:\n"
-        "- Write 'title' and every section's 'text' strictly in URDU SCRIPT (no Roman Urdu, no English sentences).\n"
-        "- Provide 4 cohesive thematic sections (about 22-28 Urdu words each, total ~90-105 Urdu words) so speech flows smoothly without choppy stops.\n"
-        "- Section 1 (Hook & Time): Direct opening on Aakhri Zamana and passing time.\n"
-        "- Section 2 (Heart & Distraction): Honest reflection on inner distraction and what truly matters.\n"
-        "- Section 3 (Practical Tip): One clear, actionable habit for today.\n"
-        "- Section 4 (Closing Takeaway): Calm, memorable closing reminder.\n"
-        "- For each section, give a specific, logical visual 'query' (2-3 English words matching the exact meaning, e.g., 'night sky stars', 'sand timer time', 'candle dark room', 'sunrise mountain horizon') and 'backup' (2-3 related English words).\n"
+        "Write a 32-38 second vertical YouTube Short voiceover in natural, everyday spoken URDU SCRIPT (اردو رسم الخط) "
+        "about 'Aakhri Zamana' (End Times). "
+        "CRITICAL STYLE: Do NOT sound like an AI, lecturer, preacher giving formal tips, or a textbook. "
+        "Sound like a real, grounded, sincere human talking one-on-one with a close friend—sharing honest life realization and a simple, natural habit from the heart. "
+        "Avoid heavy/cliché AI phrases like 'آخری زمانہ کی سب سے بڑی نشانی یہ ہے کہ' or 'آج کی عملی نصیحت'. Use natural spoken Urdu words and flow. "
+        "RULES:\n"
+        "- Write 'title' and every section's 'text' strictly in URDU SCRIPT (no Roman Urdu, no English words).\n"
+        "- Provide 4 natural spoken sections (~20-26 Urdu words each, total ~85-100 Urdu words).\n"
+        "- Section 1: Real, direct opening thought on how fast time/days are slipping.\n"
+        "- Section 2: Honest human feeling about being busy, distracted, and distant from inner peace.\n"
+        "- Section 3: Simple, real-life step a person can actually do quietly today.\n"
+        "- Section 4: Soft, genuine closing thought.\n"
+        "- Give 'query' (2-3 visual English words matching the mood/scene) and 'backup' (2-3 related English words).\n"
         f"Avoid these previous IDs/themes: {recent_list}.\n"
         "Output ONLY valid JSON:\n"
         "{\n"
         '  "id": "unique_lesson_id",\n'
         '  "title": "اردو عنوان | Islamic Short",\n'
         '  "sections": [\n'
-        '    {"text": "اردو پیراگراف", "query": "night sky stars", "backup": "dark clouds moon"}\n'
+        '    {"text": "اردو بات", "query": "night sky stars", "backup": "quiet window rain"}\n'
         "  ]\n"
         "}"
     )
 
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.9},
+        "generationConfig": {"temperature": 0.95},
     }
     encoded_key = urllib.parse.quote(api_key)
 
@@ -193,7 +202,7 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
 
     lesson_id = str(parsed.get("id") or f"auto_sabaq_{random.randint(10000, 99999)}")
     raw_title = str(parsed.get("title") or "").strip()
-    title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کا سبق | Islamic Short"
+    title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کی بات | Islamic Short"
     return {"id": lesson_id, "title": title, "sections": valid_sections}
 
 
@@ -223,18 +232,60 @@ def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
     return "DejaVu Sans", ""
 
 
-async def generate_section_voice(text: str, rate_str: str, pitch_str: str, mp3_path: Path) -> None:
+def _try_elevenlabs_tts(full_text: str, mp3_path: Path) -> bool:
+    api_key = os.getenv("ELEVENLABS_API_KEY", "").strip()
+    if not api_key:
+        return False
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "").strip() or "pNInz6obpgDQGcFmaJgB"
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{urllib.parse.quote(voice_id)}"
+    payload = {
+        "text": full_text,
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {
+            "stability": 0.42,
+            "similarity_boost": 0.80,
+            "style": 0.35,
+            "use_speaker_boost": True,
+        },
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=40) as resp, open(mp3_path, "wb") as out:
+            out.write(resp.read())
+        if mp3_path.exists() and mp3_path.stat().st_size > 15_000:
+            print("Voice engine: ElevenLabs multilingual_v2")
+            return True
+    except Exception as e:
+        print(f"ElevenLabs TTS fallback to edge-tts: {e}")
+    return False
+
+
+async def _generate_edge_continuous_voice(full_text: str, mp3_path: Path) -> None:
+    voice_name = os.getenv("EDGE_TTS_VOICE", "").strip() or "ur-PK-AsadNeural"
     communicate = edge_tts.Communicate(
-        text=text,
-        voice="ur-PK-AsadNeural",
-        rate=rate_str,
-        pitch=pitch_str,
+        text=full_text,
+        voice=voice_name,
+        rate="+5%",
+        pitch="-4Hz",
     )
     await communicate.save(str(mp3_path))
 
 
-def process_section_voice_no_gap(raw_mp3: Path, out_wav: Path) -> float:
-    # Convert cleanly with no extra silence gap so each paragraph flows naturally into the next
+def build_continuous_voice(full_text: str, work_dir: Path, clean_wav: Path) -> float:
+    raw_mp3 = work_dir / "full_narration.mp3"
+    if not _try_elevenlabs_tts(full_text, raw_mp3):
+        print("Voice engine: edge-tts continuous narration")
+        asyncio.run(_generate_edge_continuous_voice(full_text, raw_mp3))
+
     cmd = [
         "ffmpeg",
         "-y",
@@ -246,17 +297,42 @@ def process_section_voice_no_gap(raw_mp3: Path, out_wav: Path) -> float:
         "44100",
         "-ac",
         "1",
-        str(out_wav),
+        str(clean_wav),
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return get_media_duration(out_wav)
+    return get_media_duration(clean_wav)
 
 
 def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path) -> bool:
     dur = max(10.0, round(duration_sec + 1.0, 2))
+    fade_out_st = max(0.5, dur - 1.5)
+
+    for local_path in LOCAL_MUSIC_CANDIDATES:
+        if local_path.exists() and local_path.stat().st_size > 10_000:
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-stream_loop",
+                "-1",
+                "-i",
+                str(local_path.resolve()),
+                "-t",
+                f"{dur}",
+                "-af",
+                f"highpass=f=85,lowpass=f=2400,volume=0.18,afade=t=in:st=0:d=1.2,afade=t=out:st={fade_out_st}:d=1.5",
+                "-ar",
+                "44100",
+                "-ac",
+                "1",
+                str(out_wav),
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if res.returncode == 0 and out_wav.exists() and out_wav.stat().st_size > 10_000:
+                print(f"Music source: local repo file '{local_path}'")
+                return True
+
     shuffled_sources = list(MOODY_MUSIC_SOURCES)
     random.shuffle(shuffled_sources)
-
     for idx, src_url in enumerate(shuffled_sources):
         dl_path = work_dir / f"moody_track_{idx}.mp3"
         req = urllib.request.Request(src_url, headers={"User-Agent": "Mozilla/5.0"})
@@ -277,7 +353,7 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
                     "-t",
                     f"{dur}",
                     "-af",
-                    f"lowpass=f=2400,volume=0.22,afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5",
+                    f"highpass=f=85,lowpass=f=2400,volume=0.18,afade=t=in:st=0:d=1.2,afade=t=out:st={fade_out_st}:d=1.5",
                     "-ar",
                     "44100",
                     "-ac",
@@ -285,13 +361,13 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
                     str(out_wav),
                 ]
                 res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                if res.returncode == 0 and out_wav.exists() and out_wav.stat().st_size > 20_000:
-                    print(f"Music source: downloaded track ({out_wav.stat().st_size} bytes)")
+                if res.returncode == 0 and out_wav.exists() and out_wav.stat().st_size > 10_000:
+                    print(f"Music source: downloaded track ({src_url})")
                     return True
         except Exception as e:
             print(f"Music download skipped ({src_url}): {e}")
 
-    print("Music source: none (no synthetic tone used)")
+    print("Music source: none (tip: add assets/moody_music.mp3 to repo for guaranteed background music)")
     return False
 
 
@@ -313,7 +389,7 @@ def mix_voice_and_music(voice_wav: Path, music_wav: Path, has_music: bool, mixed
         "-i",
         str(music_wav),
         "-filter_complex",
-        "[0:a]volume=1.0[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]",
+        "[0:a]volume=1.05[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]",
         "-map",
         "[aout]",
         "-ar",
@@ -404,12 +480,12 @@ def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
 def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
     if idx % 2 == 0:
         crop_w, crop_h = 1020, 1813
-        x_expr = "(iw-ow)/2 + ((iw-ow)*0.15)*sin(t*0.6)"
+        x_expr = "(iw-ow)/2 + ((iw-ow)*0.12)*sin(t*0.5)"
         y_expr = "(ih-oh)/2"
     else:
         crop_w, crop_h = 1000, 1778
         x_expr = "(iw-ow)/2"
-        y_expr = "(ih-oh)/2 + ((ih-oh)*0.15)*cos(t*0.6)"
+        y_expr = "(ih-oh)/2 + ((ih-oh)*0.12)*cos(t*0.5)"
 
     vf = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
@@ -449,32 +525,29 @@ def _format_ass_time(sec: float) -> str:
     return f"{hours}:{mins:02d}:{secs:05.2f}"
 
 
-def _build_moving_caption_chunks_from_timed_sections(timed_sections: list[dict]) -> list[dict]:
-    chunks: list[dict] = []
-    for item in timed_sections:
-        start_t = float(item["start"])
-        end_t = float(item["end"])
-        sec_dur = max(0.6, end_t - start_t)
-        words = str(item["text"]).strip().split()
-        if not words:
-            continue
-        pieces: list[str] = []
-        weights: list[int] = []
+def _build_moving_caption_chunks(sections: list[dict], total_duration: float) -> list[dict]:
+    word_weights: list[tuple[str, int]] = []
+    for sec in sections:
+        words = str(sec["text"]).strip().split()
         for i in range(0, len(words), 3):
             piece = " ".join(words[i : i + 3]).strip()
             if piece:
-                pieces.append(piece)
-                weights.append(max(1, len(words[i : i + 3])))
-        total_w = sum(weights) or len(pieces)
-        cur = start_t
-        for idx, (piece, w) in enumerate(zip(pieces, weights)):
-            if idx == len(pieces) - 1:
-                nxt = end_t
-            else:
-                nxt = min(end_t, cur + (sec_dur * w) / total_w)
-            if nxt > cur:
-                chunks.append({"text": piece, "start": round(cur, 2), "end": round(nxt, 2)})
-            cur = nxt
+                word_weights.append((piece, max(1, len(words[i : i + 3]))))
+
+    if not word_weights:
+        return []
+
+    total_w = sum(w for _, w in word_weights) or len(word_weights)
+    chunks: list[dict] = []
+    cursor = 0.0
+    for idx, (piece, w) in enumerate(word_weights):
+        if idx == len(word_weights) - 1:
+            nxt = round(total_duration, 2)
+        else:
+            nxt = round(min(total_duration, cursor + (total_duration * w) / total_w), 2)
+        if nxt > cursor:
+            chunks.append({"text": piece, "start": round(cursor, 2), "end": nxt})
+        cursor = nxt
     return chunks
 
 
@@ -507,7 +580,7 @@ def burn_ass_captions(
         start_str = _format_ass_time(seg["start"])
         end_str = _format_ass_time(seg["end"])
         clean_txt = seg["text"].replace("{", "").replace("}", "").strip()
-        styled_txt = f"{{\\fad(90,70)}}{clean_txt}"
+        styled_txt = f"{{\\fad(80,60)}}{clean_txt}"
         events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{styled_txt}")
 
     ass_path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
@@ -563,70 +636,31 @@ def main() -> None:
     sections = lesson["sections"]
     print(f"Generated lesson '{lesson['id']}' with {len(sections)} thematic sections.")
 
-    prosody_presets = [
-        ("+5%", "-4Hz"),
-        ("+8%", "-3Hz"),
-        ("+4%", "-3Hz"),
-        ("+3%", "-4Hz"),
-    ]
-
-    sec_wavs: list[Path] = []
-    timed_sections: list[dict] = []
-    cursor = 0.0
-
-    for idx, item in enumerate(sections):
-        txt = item["text"].strip()
-        rate_str, pitch_str = prosody_presets[idx % len(prosody_presets)]
-        raw_mp3 = work_dir / f"sec_{idx:02d}.mp3"
-        clean_wav = work_dir / f"sec_{idx:02d}.wav"
-        asyncio.run(generate_section_voice(txt, rate_str, pitch_str, raw_mp3))
-        dur = process_section_voice_no_gap(raw_mp3, clean_wav)
-        dur = max(2.0, round(dur, 2))
-        sec_wavs.append(clean_wav)
-        timed_sections.append({
-            "text": txt,
-            "start": round(cursor, 2),
-            "end": round(cursor + dur, 2),
-            "duration": dur,
-        })
-        cursor = round(cursor + dur, 2)
-
-    audio_concat = work_dir / "audio_concat.txt"
-    with open(audio_concat, "w", encoding="utf-8") as f:
-        for w in sec_wavs:
-            f.write(f"file '{w.resolve()}'\n")
-
+    full_text = " ".join(x["text"].strip() for x in sections)
     full_voice_wav = work_dir / "full_voice.wav"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(audio_concat),
-            "-c:a",
-            "pcm_s16le",
-            str(full_voice_wav),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    total_voice_dur = max(12.0, round(build_continuous_voice(full_text, work_dir, full_voice_wav), 2))
 
-    total_voice_dur = max(12.0, round(get_media_duration(full_voice_wav), 2))
     moody_music_wav = work_dir / "moody_music.wav"
     mixed_audio_wav = work_dir / "mixed_audio.wav"
     has_music = prepare_moody_music_track(total_voice_dur, work_dir, moody_music_wav)
     mix_voice_and_music(full_voice_wav, moody_music_wav, has_music, mixed_audio_wav)
 
+    sec_word_counts = [max(4, len(x["text"].split())) for x in sections]
+    total_words = sum(sec_word_counts) or len(sections)
+    sec_durations: list[float] = []
+    acc = 0.0
+    for idx, wc in enumerate(sec_word_counts):
+        if idx == len(sec_word_counts) - 1:
+            d = max(2.0, round(total_voice_dur - acc, 2))
+        else:
+            d = max(2.0, round((total_voice_dur * wc) / total_words, 2))
+            acc = round(acc + d, 2)
+        sec_durations.append(d)
+
     used_urls: set[str] = set()
     edited_clips: list[Path] = []
 
-    for idx, (item, tsec) in enumerate(zip(sections, timed_sections)):
-        clip_dur = max(2.0, float(tsec["duration"]))
+    for idx, (item, clip_dur) in enumerate(zip(sections, sec_durations)):
         out_clip = work_dir / f"clip_{idx:02d}.mp4"
         ok = False
         for q in (item.get("query", ""), item.get("backup", "")):
@@ -666,7 +700,7 @@ def main() -> None:
         stderr=subprocess.DEVNULL,
     )
 
-    caption_chunks = _build_moving_caption_chunks_from_timed_sections(timed_sections)
+    caption_chunks = _build_moving_caption_chunks(sections, total_voice_dur)
     captioned_video = work_dir / "captioned.mp4"
     ass_file = work_dir / "captions.ass"
     burn_ass_captions(merged_video, captioned_video, caption_chunks, ass_file, font_name, font_file)
@@ -701,7 +735,6 @@ def main() -> None:
         raise RuntimeError("Failed to generate final_islamic_short.mp4.")
 
     final_dur = get_media_duration(OUTPUT_VIDEO)
-    full_text = " ".join(x["text"].strip() for x in sections)
     meta = {
         "title": lesson["title"],
         "description": (
