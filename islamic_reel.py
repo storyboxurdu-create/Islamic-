@@ -26,41 +26,6 @@ FONT_SOURCES = [
     ),
 ]
 
-FALLBACK_LESSONS = [
-    {
-        "id": "sabaq_01_be_hissi",
-        "title": "آخری زمانہ کا سبق: دل کی بے حسی | Islamic Short",
-        "lines": [
-            {"text": "آخری زمانے کا سب سے خطرناک حال یہ ہے کہ گناہ عام ہو جائیں اور دل کو بوجھ ہی نہ لگے۔", "query": "dark clouds", "backup": "rain night"},
-            {"text": "ہم روز نئی خبریں، فتنے اور بے حیائی دیکھتے ہیں، مگر اندر سے بالکل سُن ہو جاتے ہیں۔", "query": "phone screen", "backup": "city lights"},
-            {"text": "جب حق بات سن کر بھی اندر کوئی حرکت نہ ہو، تو سمجھ لیں دل کو علاج کی ضرورت ہے۔", "query": "hourglass sand", "backup": "clock time"},
-            {"text": "آخری زمانے میں اصل امتحان مال یا طاقت کا نہیں، اپنے دل کو زندہ رکھنے کا ہے۔", "query": "spark dark", "backup": "candle flame"},
-            {"text": "ہم مصروفیت کو عذر بنا لیتے ہیں، حالانکہ اصل کمی توجہ اور اخلاص کی ہوتی ہے۔", "query": "busy street", "backup": "crowd walking"},
-            {"text": "جو چیز ہمیں اللہ سے دور کرے، وہ چاہے کتنی ہی عام کیوں نہ ہو، نقصان دہ ہے۔", "query": "fog road", "backup": "misty trees"},
-            {"text": "آج کا سبق یہ ہے: دن میں کم از کم ایک بار اپنے دل سے پوچھیں کہ میں کس طرف جا رہا ہوں۔", "query": "open book", "backup": "notebook desk"},
-            {"text": "صرف زبان سے توبہ کافی نہیں، عمل میں چھوٹا سا بدلاؤ بھی لانا پڑتا ہے۔", "query": "water hands", "backup": "quiet river"},
-            {"text": "نماز کو آخری وقت پر ٹالنا چھوڑیں، کیونکہ وقت کسی کا انتظار نہیں کرتا۔", "query": "mosque dome", "backup": "morning light"},
-            {"text": "اپنے دل کی حفاظت کریں، کیونکہ آخری زمانے میں سب سے قیمتی چیز سلامت دل ہے۔", "query": "sunrise sky", "backup": "peaceful nature"},
-        ],
-    },
-    {
-        "id": "sabaq_02_be_adabi_aur_shor",
-        "title": "آخری زمانہ کا سبق: شور میں کھویا سکون | Islamic Short",
-        "lines": [
-            {"text": "آخری زمانے میں شور بہت بڑھ جائے گا، مگر سکون صرف انہی کو ملے گا جو رک کر سنیں گے۔", "query": "traffic night", "backup": "city crowd"},
-            {"text": "ہر بات پر رائے دینا اور ہر جھگڑے میں کود پڑنا انسان کا سکون اور وقار دونوں کھا جاتا ہے۔", "query": "typing phone", "backup": "mobile dark"},
-            {"text": "جب زبان بے لگام ہو جائے تو رشتے بھی ٹوٹتے ہیں اور دل کی نرمی بھی ختم ہوتی ہے۔", "query": "broken glass", "backup": "shadow wall"},
-            {"text": "علم کا فائدہ تب ہے جب وہ اخلاق اور عاجزی میں نظر آئے، تکبر میں نہیں۔", "query": "ancient library", "backup": "books table"},
-            {"text": "آخری زمانے میں دکھاوا اتنا بڑھ جائے گا کہ سچا عمل خاموشی سے چھپنے لگے گا۔", "query": "spotlight dark", "backup": "stage lights"},
-            {"text": "خاموشی کمزوری نہیں، بعض اوقات سب سے مضبوط اور دانشمندانہ فیصلہ ہوتی ہے۔", "query": "mountain peak", "backup": "calm lake"},
-            {"text": "آج کا سبق یہ ہے: غصے یا بحث کے وقت پہلے دس سیکنڈ رکیں، پھر بات کریں۔", "query": "clock ticking", "backup": "sand timer"},
-            {"text": "جس بات کا کوئی فائدہ نہ ہو، وہاں خاموش رہنا ہی سب سے بڑی بچت ہے۔", "query": "forest path", "backup": "green leaves"},
-            {"text": "اپنے گھر اور زبان میں نرمی لائیں، یہی چیز ماحول کو پر سکون بناتی ہے۔", "query": "warm lantern", "backup": "evening light"},
-            {"text": "یاد رکھیں، اصل کامیابی شور مچانے میں نہیں، رب کو راضی کرنے میں ہے۔", "query": "golden horizon", "backup": "sun rays"},
-        ],
-    },
-]
-
 
 def load_history() -> list[str]:
     if HISTORY_FILE.exists():
@@ -94,14 +59,14 @@ def _has_urdu_script(text: str) -> bool:
     return bool(re.search(r"[\u0600-\u06FF]", text))
 
 
-def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict | None:
+def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
     if not api_key:
-        return None
+        raise RuntimeError("GEMINI_API_KEY is missing; auto script generation cannot proceed.")
 
-    recent_list = ", ".join(used_ids[-15:]) if used_ids else "none"
+    recent_list = ", ".join(used_ids[-20:]) if used_ids else "none"
     prompt = (
         "You are an Islamic mentor and short-form video editor scriptwriter for 30-38 second vertical YouTube Shorts in Urdu. "
-        "Do NOT write a story or fictional character narrative. Write ONE direct, sharp, insightful 'Aakhri Zamana' (End Times) LESSON / REALIZATION in proper URDU SCRIPT (اردو رسم الخط), "
+        "Do NOT write a story or fictional character narrative. Write ONE fresh, direct, sharp, insightful 'Aakhri Zamana' (End Times) LESSON / REALIZATION in proper URDU SCRIPT (اردو رسم الخط), "
         "as if a wise mentor is speaking directly and naturally to the viewer, followed by a practical tip. "
         "CRITICAL RULES:\n"
         "- Write 'title' and every line's 'text' strictly in URDU SCRIPT (no Roman Urdu, no English sentences).\n"
@@ -125,7 +90,7 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict | Non
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key)}"
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.85},
+        "generationConfig": {"temperature": 0.9},
     }
     req = urllib.request.Request(
         url,
@@ -133,54 +98,42 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict | Non
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        parts = (
-            payload.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [])
-        )
-        text_out = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
-        parsed = _extract_json_object(text_out)
-        if not parsed:
-            return None
-        lines = parsed.get("lines")
-        if not isinstance(lines, list) or len(lines) < 8:
-            return None
-        valid_lines = []
-        for item in lines[:10]:
-            if isinstance(item, dict) and item.get("text") and item.get("query"):
-                txt = str(item["text"]).strip()
-                if not _has_urdu_script(txt):
-                    return None
-                valid_lines.append({
-                    "text": txt,
-                    "query": str(item["query"]).strip(),
-                    "backup": str(item.get("backup") or "nature sky").strip(),
-                })
-        if len(valid_lines) < 8:
-            return None
-        lesson_id = str(parsed.get("id") or f"sabaq_{random.randint(10000, 99999)}")
-        raw_title = str(parsed.get("title") or "").strip()
-        title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کا سبق | Islamic Short"
-        return {"id": lesson_id, "title": title, "lines": valid_lines}
-    except Exception as e:
-        print(f"Gemini lesson generation failed, using fallback: {e}")
-        return None
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
 
+    parts = (
+        payload.get("candidates", [{}])[0]
+        .get("content", {})
+        .get("parts", [])
+    )
+    text_out = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+    parsed = _extract_json_object(text_out)
+    if not parsed:
+        raise RuntimeError("Gemini did not return valid JSON script.")
 
-def pick_lesson(used_ids: list[str], gemini_key: str) -> dict:
-    lesson = generate_lesson_with_gemini(gemini_key, used_ids)
-    if not lesson:
-        unused = [x for x in FALLBACK_LESSONS if x["id"] not in used_ids]
-        if not unused:
-            used_ids.clear()
-            unused = FALLBACK_LESSONS
-        lesson = random.choice(unused)
-    used_ids.append(lesson["id"])
-    save_history(used_ids)
-    return lesson
+    lines = parsed.get("lines")
+    if not isinstance(lines, list) or len(lines) < 8:
+        raise RuntimeError("Gemini returned insufficient script lines.")
+
+    valid_lines = []
+    for item in lines[:10]:
+        if isinstance(item, dict) and item.get("text") and item.get("query"):
+            txt = str(item["text"]).strip()
+            if not _has_urdu_script(txt):
+                raise RuntimeError("Gemini script line is not in Urdu script.")
+            valid_lines.append({
+                "text": txt,
+                "query": str(item["query"]).strip(),
+                "backup": str(item.get("backup") or "nature sky").strip(),
+            })
+
+    if len(valid_lines) < 8:
+        raise RuntimeError("Not enough valid Urdu lines generated by Gemini.")
+
+    lesson_id = str(parsed.get("id") or f"auto_sabaq_{random.randint(10000, 99999)}")
+    raw_title = str(parsed.get("title") or "").strip()
+    title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کا سبق | Islamic Short"
+    return {"id": lesson_id, "title": title, "lines": valid_lines}
 
 
 def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
@@ -213,20 +166,20 @@ async def generate_voice_line(text: str, mp3_path: Path) -> None:
     communicate = edge_tts.Communicate(
         text=text,
         voice="ur-PK-AsadNeural",
-        rate="+6%",
-        pitch="-2Hz",
+        rate="+4%",
+        pitch="-4Hz",
     )
     await communicate.save(str(mp3_path))
 
 
-def process_voice_line(raw_mp3: Path, clean_wav: Path, pause_sec: float = 0.22) -> float:
+def process_voice_line(raw_mp3: Path, clean_wav: Path) -> float:
     cmd = [
         "ffmpeg",
         "-y",
         "-i",
         str(raw_mp3),
         "-af",
-        f"highpass=f=80,lowpass=f=12000,acompressor=threshold=-18dB:ratio=3:attack=10:release=120,loudnorm=I=-15:TP=-1.5:LRA=9,apad=pad_dur={pause_sec}",
+        "highpass=f=85,lowpass=f=11500,equalizer=f=180:width_type=o:width=1.5:g=2.5,acompressor=threshold=-17dB:ratio=2.5:attack=12:release=140,loudnorm=I=-15:TP=-1.5:LRA=9",
         "-ar",
         "44100",
         "-ac",
@@ -235,6 +188,52 @@ def process_voice_line(raw_mp3: Path, clean_wav: Path, pause_sec: float = 0.22) 
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return get_media_duration(clean_wav)
+
+
+def build_ambient_music_track(duration_sec: float, out_wav: Path) -> None:
+    # Soft harmonic ambient pad (low-frequency warm drones) at very low volume under voice
+    dur = max(10.0, round(duration_sec + 1.0, 2))
+    fc = (
+        f"sine=frequency=110:sample_rate=44100:duration={dur}[f1];"
+        f"sine=frequency=164.81:sample_rate=44100:duration={dur}[f2];"
+        f"sine=frequency=220:sample_rate=44100:duration={dur}[f3];"
+        "[f1][f2][f3]amix=inputs=3:weights='0.5 0.35 0.25',"
+        "lowpass=f=420,volume=0.045,"
+        f"afade=t=in:st=0:d=1.5,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5"
+    )
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-filter_complex",
+        fc,
+        "-ar",
+        "44100",
+        "-ac",
+        "1",
+        str(out_wav),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def mix_voice_and_music(voice_wav: Path, music_wav: Path, mixed_wav: Path) -> None:
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(voice_wav),
+        "-i",
+        str(music_wav),
+        "-filter_complex",
+        "[0:a]volume=1.08[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-15:TP=-1.5:LRA=10[aout]",
+        "-map",
+        "[aout]",
+        "-ar",
+        "44100",
+        "-ac",
+        "1",
+        str(mixed_wav),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def get_media_duration(file_path: Path) -> float:
@@ -314,7 +313,6 @@ def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
-    # Punchy editor motion: alternating scale/crop framing + dynamic push/pull + warm/moody grade
     if idx % 4 == 0:
         crop_w, crop_h = 900, 1600
         x_expr = "(iw-ow)/2 + ((iw-ow)/4)*sin(t*0.8)"
@@ -465,7 +463,10 @@ def main() -> None:
     pixabay_key = os.getenv("PIXABAY_API_KEY", "").strip()
 
     font_name, font_file = ensure_urdu_font(work_dir / "fonts")
-    lesson = pick_lesson(used_ids, gemini_key)
+    lesson = generate_lesson_with_gemini(gemini_key, used_ids)
+    used_ids.append(lesson["id"])
+    save_history(used_ids)
+
     lines = lesson["lines"]
 
     voice_wavs: list[Path] = []
@@ -475,8 +476,8 @@ def main() -> None:
         raw_mp3 = work_dir / f"line_{idx:02d}.mp3"
         clean_wav = work_dir / f"line_{idx:02d}.wav"
         asyncio.run(generate_voice_line(item["text"], raw_mp3))
-        dur = process_voice_line(raw_mp3, clean_wav, pause_sec=0.22)
-        dur = max(2.2, round(dur, 2))
+        dur = process_voice_line(raw_mp3, clean_wav)
+        dur = max(2.0, round(dur, 2))
         voice_wavs.append(clean_wav)
         line_durations.append(dur)
 
@@ -504,6 +505,12 @@ def main() -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
+    total_voice_dur = get_media_duration(full_voice_wav)
+    ambient_music_wav = work_dir / "ambient_music.wav"
+    mixed_audio_wav = work_dir / "mixed_audio.wav"
+    build_ambient_music_track(total_voice_dur, ambient_music_wav)
+    mix_voice_and_music(full_voice_wav, ambient_music_wav, mixed_audio_wav)
 
     used_urls: set[str] = set()
     edited_clips: list[Path] = []
@@ -568,7 +575,7 @@ def main() -> None:
             "-i",
             str(captioned_video),
             "-i",
-            str(full_voice_wav),
+            str(mixed_audio_wav),
             "-map",
             "0:v:0",
             "-map",
@@ -600,7 +607,7 @@ def main() -> None:
         "clips_count": len(edited_clips),
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) with {len(edited_clips)} pro-cut clips & lesson narration.")
+    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) with soft ambient score, natural voice & {len(edited_clips)} pro-cut clips.")
 
 
 if __name__ == "__main__":
