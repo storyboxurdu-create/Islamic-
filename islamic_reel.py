@@ -49,11 +49,11 @@ DISTINCT_TOPICS = [
     "Sahaba ke achhay aur sachay waqiat se sachai, qurbaani, aur pak dil ka sabaq",
 ]
 
-OPENING_STYLES = [
-    "Start with a direct, gripping opening line about the topic in natural spoken Urdu.",
-    "Start with a thought-provoking question in natural spoken Urdu.",
-    "Start with a calm, eye-opening realization without using a question mark.",
-    "Start with a grounded, heartfelt statement that pulls the viewer in immediately.",
+HOOK_STYLES = [
+    "Start in 2 seconds with a sharp, unexpected truth that stops scrolling immediately.",
+    "Start with a gripping question that creates instant curiosity without sounding generic.",
+    "Start right in the middle of a powerful realization or true moment.",
+    "Start with a bold contrast between what people chase and what actually matters.",
 ]
 
 
@@ -197,32 +197,34 @@ def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
     recent_summaries = history.get("recent_summaries") or []
 
     chosen_topic = random.choice(DISTINCT_TOPICS)
-    chosen_opening = random.choice(OPENING_STYLES)
+    chosen_hook = random.choice(HOOK_STYLES)
     run_nonce = random.randint(100000, 999999)
 
     avoid_text = "\n".join(f"- {s}" for s in recent_summaries[-8:]) if recent_summaries else "- None yet"
 
     prompt = (
-        f"Unique session #{run_nonce}. Create a gripping, authentic 32-38 second vertical YouTube Short script in natural spoken URDU SCRIPT (اردو رسم الخط) "
+        f"Unique session #{run_nonce}. Create a high-retention 28-35 second vertical YouTube Short script in natural spoken URDU SCRIPT (اردو رسم الخط) "
         f"on this exact topic: {chosen_topic}. "
-        f"Opening style: {chosen_opening}\n"
-        "CONTENT RULES:\n"
-        "- Stay true to the chosen topic (Dajjal, Yajooj Majooj, Aakhri Zamana, Hadees, Nabiyon ke sachay waqiat, or Sahaba ke achhay waqiat). Keep historical/traditional events respectful and accurate.\n"
-        "- Do NOT repeat previous scripts, openings, or phrasing from the list below.\n"
-        "- Sound like a sincere, grounded Urdu narrator speaking naturally from the heart—never robotic or repetitive.\n"
-        "- Use clear everyday Pakistani/Urdu words (وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، سچائی، ایمان، صبر) with zero English or Roman words in 'sections'.\n"
-        "- Provide 5 gripping sections (~16-20 Urdu words each, total ~85-95 Urdu words).\n"
-        "- Create a high-CTR, curiosity-driven 'title' specifically matching THIS video's exact event/message (under 80 chars, in Urdu script + optional short English topic tag like '| Dajjal' or '| Hadees').\n"
-        "- Create a short punchy Urdu thumbnail headline ('thumb_text', 3-5 Urdu words) matching this specific video.\n"
-        "- Create 12 targeted YouTube 'tags' specifically tailored to this video's topic, key names/concepts, and high-reach Urdu/English Shorts search terms (no '#' symbols).\n"
-        "- Give each section a dramatic, logical visual 'query' (2-3 English words) and 'backup' (2-3 English words).\n"
+        f"Hook instruction: {chosen_hook}\n"
+        "RETENTION & PACING RULES:\n"
+        "- Total length: ~75-85 Urdu words across 5 tight, fast-moving sections (~14-17 Urdu words per section). No filler or slow buildup.\n"
+        "- Section 1 (Instant Hook): Grab attention immediately with a strong opening line.\n"
+        "- Section 2 (Curiosity Escalation): Deepen the tension or reveal a key detail that keeps viewers watching.\n"
+        "- Section 3 (Core Turning Point): Deliver the heart of the message or true event cleanly.\n"
+        "- Section 4 (Practical/Emotional Shift): Give a crisp, relatable realization.\n"
+        "- Section 5 (Hard-Hitting Payoff): End on a memorable, thought-provoking closing line that feels complete yet replay-worthy.\n"
+        "- Stay truthful and respectful to Islamic teachings, Hadith, Dajjal, Yajooj Majooj, Aakhri Zamana, and true stories of Prophets and Sahaba.\n"
+        "- Use plain everyday Pakistani/Urdu words (وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، سچائی، ایمان، صبر) with zero English or Roman words in 'sections'.\n"
+        "- Do NOT repeat previous scripts or openings below.\n"
+        "- Create a punchy, curiosity-driven 'title' (under 75 chars) and short 'thumb_text' (3-4 Urdu words) + 12 targeted 'tags' (no '#').\n"
+        "- Give each section a dramatic visual 'query' (2-3 English words) and 'backup' (2-3 English words).\n"
         "PREVIOUS SCRIPTS TO AVOID REPEATING:\n"
         f"{avoid_text}\n"
         "Output ONLY valid JSON:\n"
         "{\n"
         f'  "id": "sabaq_{run_nonce}",\n'
-        '  "title": "اس ویڈیو کے مطابق پرکشش اردو عنوان",\n'
-        '  "thumb_text": "اردو تھمب نیل سرخی",\n'
+        '  "title": "تیز اور پرکشش اردو عنوان",\n'
+        '  "thumb_text": "تھمب نیل سرخی",\n'
         '  "tags": ["اس ویڈیو کا ٹیگ", "Islamic Shorts"],\n'
         '  "summary": "Short 1-line summary of what this specific video covers",\n'
         '  "sections": [\n'
@@ -393,8 +395,8 @@ async def _generate_edge_continuous_voice(full_text: str, mp3_path: Path) -> Non
     communicate = edge_tts.Communicate(
         text=full_text,
         voice=voice_name,
-        rate="+2%",
-        pitch="-5Hz",
+        rate="+5%",
+        pitch="-4Hz",
     )
     await communicate.save(str(mp3_path))
 
@@ -600,7 +602,7 @@ def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
-    fade_d = min(0.35, max(0.15, dur * 0.08))
+    fade_d = min(0.30, max(0.12, dur * 0.07))
     fade_out_st = max(0.1, dur - fade_d)
 
     if idx % 3 == 0:
@@ -807,7 +809,7 @@ def burn_ass_captions(
         start_str = _format_ass_time(seg["start"])
         end_str = _format_ass_time(seg["end"])
         clean_txt = seg["text"].replace("{", "").replace("}", "").strip()
-        styled_txt = f"{{\\fad(90,70)}}{clean_txt}"
+        styled_txt = f"{{\\fad(80,60)}}{clean_txt}"
         events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{styled_txt}")
 
     ok = _render_ass_on_image_or_video(
