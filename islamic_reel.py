@@ -39,6 +39,17 @@ MOODY_MUSIC_SOURCES = [
     "https://archive.org/download/SadPianoInstrumental/Sad%20Piano%20Instrumental.mp3",
 ]
 
+FRESH_ANGLES = [
+    "waqt ka achanak guzar jana aur insan ka khud se be-khabar rehna",
+    "dil ka sakht hona aur chhoti chhoti baaton par gussa ya be-chaini",
+    "raat ki khamoshi mein apni zindagi aur aane wale kal par ghor karna",
+    "har waqt shor aur bhaag daur ke darmiyan sukoon kho dene ka ehsaas",
+    "zaban aur kirdar ki sachai aur chhupay huay aamal ki ahmiyat",
+    "aaj hi apne andar ek chhoti si behtri lane ka asan qadam",
+    "duniya ki chamak mein kho kar asal manzil bhool janay ka khatra",
+    "maaf karne, narm padne, aur dil ko saaf rakhne ki taaqat",
+]
+
 
 def load_history() -> list[str]:
     if HISTORY_FILE.exists():
@@ -54,7 +65,7 @@ def load_history() -> list[str]:
 
 
 def save_history(used_ids: list[str]) -> None:
-    HISTORY_FILE.write_text(json.dumps(used_ids[-100:], ensure_ascii=False, indent=2), encoding="utf-8")
+    HISTORY_FILE.write_text(json.dumps(used_ids[-150:], ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _extract_json_object(raw_text: str) -> dict | None:
@@ -115,27 +126,30 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is missing; auto script generation cannot proceed.")
 
-    recent_list = ", ".join(used_ids[-20:]) if used_ids else "none"
+    recent_list = ", ".join(used_ids[-30:]) if used_ids else "none"
+    chosen_angle = random.choice(FRESH_ANGLES)
+    run_nonce = random.randint(100000, 999999)
+
     prompt = (
-        "Write a 32-38 second vertical YouTube Short voiceover in natural, everyday spoken URDU SCRIPT (اردو رسم الخط) "
-        "about 'Aakhri Zamana' (End Times). "
+        f"Run seed #{run_nonce}. Write a completely fresh, original 32-38 second vertical YouTube Short voiceover in natural, everyday spoken URDU SCRIPT (اردو رسم الخط) "
+        f"about 'Aakhri Zamana' (End Times), specifically focusing on this angle: {chosen_angle}. "
         "CRITICAL STYLE: Sound like a real, grounded, sincere human talking one-on-one with a close friend—sharing honest life realization and a simple, natural habit from the heart. "
-        "Do NOT sound like a robot, lecturer, or preacher giving formal tips. "
+        "Do NOT repeat previous scripts, openings, or generic clichés. Make the wording fresh and distinct. "
         "STRICT PRONUNCIATION & LANGUAGE RULE: Use plain, familiar, everyday Pakistani/Urdu words with clear Urdu spelling so a text-to-speech voice never pronounces any Urdu word with an English-like accent. "
         "Avoid heavy/uncommon Arabicized or English-sounding words; prefer clear everyday words like وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، غفلت، سچائی. "
         "RULES:\n"
         "- Write 'title' and every section's 'text' strictly in pure URDU SCRIPT (no Roman Urdu, no English words).\n"
         "- Provide 5 gripping, well-paced sections (~16-20 Urdu words each, total ~85-95 Urdu words) so visuals shift naturally and keep viewers hooked.\n"
-        "- Section 1 (Gripping Hook): A sudden, eye-opening realization about how silently time is slipping.\n"
+        "- Section 1 (Gripping Hook): A sudden, eye-opening realization for this specific angle.\n"
         "- Section 2 (Hidden Reality): What people ignore while chasing everyday noise and rush.\n"
-        "- Section 3 (Inner State): How quiet the heart feels when we forget what truly lasts.\n"
+        "- Section 3 (Inner State): How quiet or heavy the heart feels when we forget what truly lasts.\n"
         "- Section 4 (Simple Shift): One calm, practical thing to change today.\n"
-        "- Section 5 (Closing Punch): A lingering, unforgettable final thought.\n"
+        "- Section 5 (Closing Punch): A lingering, fresh final thought.\n"
         "- For each section, give a dramatic, cinematic, high-retention visual 'query' (2-3 English words, e.g., 'stormy ocean dark', 'candle flame shadow', 'lone man night', 'thunder clouds sky', 'sunrise mist mountains') and 'backup' (2-3 related moody English words).\n"
-        f"Avoid these previous IDs/themes: {recent_list}.\n"
+        f"Do NOT reuse or repeat any of these previous IDs/themes: {recent_list}.\n"
         "Output ONLY valid JSON:\n"
         "{\n"
-        '  "id": "unique_lesson_id",\n'
+        f'  "id": "sabaq_{run_nonce}",\n'
         '  "title": "اردو عنوان | Islamic Short",\n'
         '  "sections": [\n'
         '    {"text": "اردو بات", "query": "stormy ocean dark", "backup": "dark waves night"}\n'
@@ -145,7 +159,7 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
 
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.92},
+        "generationConfig": {"temperature": 1.0},
     }
     encoded_key = urllib.parse.quote(api_key)
 
@@ -211,9 +225,12 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
     if len(valid_sections) < 4:
         raise RuntimeError("Not enough valid Urdu sections generated by Gemini.")
 
-    lesson_id = str(parsed.get("id") or f"auto_sabaq_{random.randint(10000, 99999)}")
+    lesson_id = str(parsed.get("id") or f"sabaq_{run_nonce}")
+    if lesson_id in used_ids:
+        lesson_id = f"{lesson_id}_{random.randint(100, 999)}"
     raw_title = _normalize_urdu_pronunciation(str(parsed.get("title") or ""))
     title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کی بات"
+    print(f"Selected fresh angle: {chosen_angle}")
     return {"id": lesson_id, "title": title, "sections": valid_sections}
 
 
@@ -492,7 +509,6 @@ def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
-    # Smooth, controlled motion + moody contrast/vignette + fade-in/out so transitions feel cinematic
     fade_d = min(0.35, max(0.15, dur * 0.08))
     fade_out_st = max(0.1, dur - fade_d)
 
