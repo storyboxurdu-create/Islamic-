@@ -39,33 +39,44 @@ MOODY_MUSIC_SOURCES = [
     "https://archive.org/download/SadPianoInstrumental/Sad%20Piano%20Instrumental.mp3",
 ]
 
-FRESH_ANGLES = [
-    "waqt ka achanak guzar jana aur insan ka khud se be-khabar rehna",
-    "dil ka sakht hona aur chhoti chhoti baaton par gussa ya be-chaini",
-    "raat ki khamoshi mein apni zindagi aur aane wale kal par ghor karna",
-    "har waqt shor aur bhaag daur ke darmiyan sukoon kho dene ka ehsaas",
-    "zaban aur kirdar ki sachai aur chhupay huay aamal ki ahmiyat",
-    "aaj hi apne andar ek chhoti si behtri lane ka asan qadam",
-    "duniya ki chamak mein kho kar asal manzil bhool janay ka khatra",
-    "maaf karne, narm padne, aur dil ko saaf rakhne ki taaqat",
+DISTINCT_TOPICS = [
+    "Dajjal ka fitna, uski azmaishon ki haqeeqat, aur iman bachane ka sabaq",
+    "Yajooj Majooj ka zikr, rukawat ke khulne ka waqt, aur ghaflat se bachne ki yaad-dihani",
+    "Aakhri Zamana ki nishaniyan aur badalte waqt mein dil aur amal ko sambhalna",
+    "Hadees ki roshni mein waqt, iman, aur aakhirat ki tayari ka sabaq",
+    "Nabiyon ke sachay waqiat se sabr, yaqeen, aur mushkil waqt mein Allah par bharosa",
+    "Sahaba ke achhay aur sachay waqiat se sachai, qurbaani, aur pak dil ka sabaq",
+]
+
+OPENING_STYLES = [
+    "Start with a direct, gripping opening line about the topic in natural spoken Urdu.",
+    "Start with a thought-provoking question in natural spoken Urdu.",
+    "Start with a calm, eye-opening realization without using a question mark.",
+    "Start with a grounded, heartfelt statement that pulls the viewer in immediately.",
 ]
 
 
-def load_history() -> list[str]:
+def load_history() -> dict:
     if HISTORY_FILE.exists():
         try:
             data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                ids = [str(x) for x in (data.get("used_ids") or [])]
+                summaries = [str(x) for x in (data.get("recent_summaries") or [])]
+                return {"used_ids": ids, "recent_summaries": summaries}
             if isinstance(data, list):
-                return [str(x) for x in data]
-            if isinstance(data, dict) and isinstance(data.get("used_ids"), list):
-                return [str(x) for x in data["used_ids"]]
+                return {"used_ids": [str(x) for x in data], "recent_summaries": []}
         except Exception:
             pass
-    return []
+    return {"used_ids": [], "recent_summaries": []}
 
 
-def save_history(used_ids: list[str]) -> None:
-    HISTORY_FILE.write_text(json.dumps(used_ids[-150:], ensure_ascii=False, indent=2), encoding="utf-8")
+def save_history(history: dict) -> None:
+    payload = {
+        "used_ids": (history.get("used_ids") or [])[-150:],
+        "recent_summaries": (history.get("recent_summaries") or [])[-12:],
+    }
+    HISTORY_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _extract_json_object(raw_text: str) -> dict | None:
@@ -122,35 +133,37 @@ def _list_available_gemini_models(api_key: str) -> list[str]:
     return []
 
 
-def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
+def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is missing; auto script generation cannot proceed.")
 
-    recent_list = ", ".join(used_ids[-30:]) if used_ids else "none"
-    chosen_angle = random.choice(FRESH_ANGLES)
+    used_ids = history.get("used_ids") or []
+    recent_summaries = history.get("recent_summaries") or []
+
+    chosen_topic = random.choice(DISTINCT_TOPICS)
+    chosen_opening = random.choice(OPENING_STYLES)
     run_nonce = random.randint(100000, 999999)
 
+    avoid_text = "\n".join(f"- {s}" for s in recent_summaries[-8:]) if recent_summaries else "- None yet"
+
     prompt = (
-        f"Run seed #{run_nonce}. Write a completely fresh, original 32-38 second vertical YouTube Short voiceover in natural, everyday spoken URDU SCRIPT (اردو رسم الخط) "
-        f"about 'Aakhri Zamana' (End Times), specifically focusing on this angle: {chosen_angle}. "
-        "CRITICAL STYLE: Sound like a real, grounded, sincere human talking one-on-one with a close friend—sharing honest life realization and a simple, natural habit from the heart. "
-        "Do NOT repeat previous scripts, openings, or generic clichés. Make the wording fresh and distinct. "
-        "STRICT PRONUNCIATION & LANGUAGE RULE: Use plain, familiar, everyday Pakistani/Urdu words with clear Urdu spelling so a text-to-speech voice never pronounces any Urdu word with an English-like accent. "
-        "Avoid heavy/uncommon Arabicized or English-sounding words; prefer clear everyday words like وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، غفلت، سچائی. "
-        "RULES:\n"
-        "- Write 'title' and every section's 'text' strictly in pure URDU SCRIPT (no Roman Urdu, no English words).\n"
-        "- Provide 5 gripping, well-paced sections (~16-20 Urdu words each, total ~85-95 Urdu words) so visuals shift naturally and keep viewers hooked.\n"
-        "- Section 1 (Gripping Hook): A sudden, eye-opening realization for this specific angle.\n"
-        "- Section 2 (Hidden Reality): What people ignore while chasing everyday noise and rush.\n"
-        "- Section 3 (Inner State): How quiet or heavy the heart feels when we forget what truly lasts.\n"
-        "- Section 4 (Simple Shift): One calm, practical thing to change today.\n"
-        "- Section 5 (Closing Punch): A lingering, fresh final thought.\n"
-        "- For each section, give a dramatic, cinematic, high-retention visual 'query' (2-3 English words, e.g., 'stormy ocean dark', 'candle flame shadow', 'lone man night', 'thunder clouds sky', 'sunrise mist mountains') and 'backup' (2-3 related moody English words).\n"
-        f"Do NOT reuse or repeat any of these previous IDs/themes: {recent_list}.\n"
+        f"Unique session #{run_nonce}. Create a gripping, authentic 32-38 second vertical YouTube Short script in natural spoken URDU SCRIPT (اردو رسم الخط) "
+        f"on this exact topic: {chosen_topic}. "
+        f"Opening style: {chosen_opening}\n"
+        "CONTENT RULES:\n"
+        "- Stay true to the chosen topic (Dajjal, Yajooj Majooj, Aakhri Zamana, Hadees, Nabiyon ke sachay waqiat, or Sahaba ke achhay waqiat). When telling a true event from history/tradition, keep it respectful, accurate, and spiritually meaningful without making up false claims.\n"
+        "- Do NOT repeat previous scripts, openings, or phrasing from the list below.\n"
+        "- Sound like a sincere, grounded Urdu narrator speaking naturally from the heart—never robotic or repetitive.\n"
+        "- Use clear everyday Pakistani/Urdu words (وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، سچائی، ایمان، صبر) with zero English or Roman words.\n"
+        "- Provide 5 gripping sections (~16-20 Urdu words each, total ~85-95 Urdu words).\n"
+        "- Give each section a dramatic, logical visual 'query' (2-3 English words) and 'backup' (2-3 English words).\n"
+        "PREVIOUS SCRIPTS TO AVOID REPEATING:\n"
+        f"{avoid_text}\n"
         "Output ONLY valid JSON:\n"
         "{\n"
         f'  "id": "sabaq_{run_nonce}",\n'
         '  "title": "اردو عنوان | Islamic Short",\n'
+        '  "summary": "Short 1-line summary of what this specific video covers",\n'
         '  "sections": [\n'
         '    {"text": "اردو بات", "query": "stormy ocean dark", "backup": "dark waves night"}\n'
         "  ]\n"
@@ -230,8 +243,10 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
         lesson_id = f"{lesson_id}_{random.randint(100, 999)}"
     raw_title = _normalize_urdu_pronunciation(str(parsed.get("title") or ""))
     title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کی بات"
-    print(f"Selected fresh angle: {chosen_angle}")
-    return {"id": lesson_id, "title": title, "sections": valid_sections}
+    summary = str(parsed.get("summary") or chosen_topic).strip()
+    print(f"Selected topic: {chosen_topic}")
+    print(f"Script summary: {summary}")
+    return {"id": lesson_id, "title": title, "summary": summary, "sections": valid_sections}
 
 
 def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
@@ -662,18 +677,20 @@ def main() -> None:
     work_dir = Path("build_assets")
     work_dir.mkdir(exist_ok=True)
 
-    used_ids = load_history()
+    history = load_history()
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     pixabay_key = os.getenv("PIXABAY_API_KEY", "").strip()
 
     font_name, font_file = ensure_urdu_font(work_dir / "fonts")
     print(f"Using font: {font_name} ({font_file or 'system'})")
 
-    lesson = generate_lesson_with_gemini(gemini_key, used_ids)
-    used_ids.append(lesson["id"])
-    save_history(used_ids)
+    lesson = generate_lesson_with_gemini(gemini_key, history)
+    history.setdefault("used_ids", []).append(lesson["id"])
+    history.setdefault("recent_summaries", []).append(lesson["summary"])
+    save_history(history)
+
     sections = lesson["sections"]
-    print(f"Generated lesson '{lesson['id']}' with {len(sections)} gripping sections.")
+    print(f"Generated lesson '{lesson['id']}' with {len(sections)} sections.")
 
     full_text = " ".join(x["text"].strip() for x in sections)
     full_voice_wav = work_dir / "full_voice.wav"
