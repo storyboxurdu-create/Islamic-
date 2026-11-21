@@ -59,6 +59,36 @@ def _has_urdu_script(text: str) -> bool:
     return bool(re.search(r"[\u0600-\u06FF]", text))
 
 
+def _list_available_gemini_models(api_key: str) -> list[str]:
+    encoded_key = urllib.parse.quote(api_key)
+    for base in (
+        f"https://generativelanguage.googleapis.com/v1beta/models?key={encoded_key}",
+        f"https://generativelanguage.googleapis.com/v1/models?key={encoded_key}",
+    ):
+        req = urllib.request.Request(base, headers={"User-Agent": "Mozilla/5.0"}, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            names: list[str] = []
+            for m in data.get("models", []):
+                methods = m.get("supportedGenerationMethods") or []
+                full_name = str(m.get("name") or "")
+                if not full_name:
+                    continue
+                if methods and "generateContent" not in methods:
+                    continue
+                model_id = full_name.split("/")[-1]
+                if "gemini" in model_id and "embedding" not in model_id and "imagen" not in model_id and "veo" not in model_id:
+                    if model_id not in names:
+                        names.append(model_id)
+            if names:
+                print(f"Discovered Gemini models: {', '.join(names[:8])}")
+                return names
+        except Exception as e:
+            print(f"ListModels check failed ({base.split('?')[0]}): {e}")
+    return []
+
+
 def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is missing; auto script generation cannot proceed.")
@@ -92,13 +122,19 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
         "generationConfig": {"temperature": 0.9},
     }
     encoded_key = urllib.parse.quote(api_key)
-    endpoints = [
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={encoded_key}",
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={encoded_key}",
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={encoded_key}",
-        f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={encoded_key}",
-        f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={encoded_key}",
+
+    discovered = _list_available_gemini_models(api_key)
+    candidate_models = discovered or [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-flash-latest",
+        "gemini-1.5-flash",
     ]
+
+    endpoints: list[str] = []
+    for model_id in candidate_models:
+        endpoints.append(f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={encoded_key}")
+        endpoints.append(f"https://generativelanguage.googleapis.com/v1/models/{model_id}:generateContent?key={encoded_key}")
 
     payload = None
     last_err = None
@@ -494,145 +530,3 @@ def main() -> None:
     line_durations: list[float] = []
 
     for idx, item in enumerate(lines):
-        raw_mp3 = work_dir / f"line_{idx:02d}.mp3"
-        clean_wav = work_dir / f"line_{idx:02d}.wav"
-        asyncio.run(generate_voice_line(item["text"], raw_mp3))
-        dur = process_voice_line(raw_mp3, clean_wav)
-        dur = max(2.0, round(dur, 2))
-        voice_wavs.append(clean_wav)
-        line_durations.append(dur)
-
-    audio_concat = work_dir / "audio_concat.txt"
-    with open(audio_concat, "w", encoding="utf-8") as f:
-        for w in voice_wavs:
-            f.write(f"file '{w.resolve()}'\n")
-
-    full_voice_wav = work_dir / "full_voice.wav"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(audio_concat),
-            "-c:a",
-            "pcm_s16le",
-            str(full_voice_wav),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    total_voice_dur = get_media_duration(full_voice_wav)
-    ambient_music_wav = work_dir / "ambient_music.wav"
-    mixed_audio_wav = work_dir / "mixed_audio.wav"
-    build_ambient_music_track(total_voice_dur, ambient_music_wav)
-    mix_voice_and_music(full_voice_wav, ambient_music_wav, mixed_audio_wav)
-
-    used_urls: set[str] = set()
-    edited_clips: list[Path] = []
-    caption_segments: list[dict] = []
-    cursor = 0.0
-
-    for idx, (item, clip_dur) in enumerate(zip(lines, line_durations)):
-        out_clip = work_dir / f"clip_{idx:02d}.mp4"
-        ok = False
-        for q in (item.get("query", ""), item.get("backup", "")):
-            url = fetch_pixabay_clip(q, pixabay_key, used_urls)
-            if url:
-                raw_clip = work_dir / f"raw_{idx:02d}.mp4"
-                if download_file(url, raw_clip):
-                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
-                    if ok:
-                        break
-        if not ok:
-            build_fallback_clip(out_clip, clip_dur, idx)
-
-        edited_clips.append(out_clip)
-        caption_segments.append({
-            "text": item["text"],
-            "start": cursor,
-            "end": round(cursor + clip_dur, 2),
-        })
-        cursor = round(cursor + clip_dur, 2)
-
-    clips_concat = work_dir / "clips_concat.txt"
-    with open(clips_concat, "w", encoding="utf-8") as f:
-        for c in edited_clips:
-            f.write(f"file '{c.resolve()}'\n")
-
-    merged_video = work_dir / "merged.mp4"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(clips_concat),
-            "-c:v",
-            "copy",
-            str(merged_video),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    captioned_video = work_dir / "captioned.mp4"
-    ass_file = work_dir / "captions.ass"
-    burn_ass_captions(merged_video, captioned_video, caption_segments, ass_file, font_name, font_file)
-
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(captioned_video),
-            "-i",
-            str(mixed_audio_wav),
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-shortest",
-            str(OUTPUT_VIDEO),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    if not OUTPUT_VIDEO.exists() or OUTPUT_VIDEO.stat().st_size == 0:
-        raise RuntimeError("Failed to generate final_islamic_short.mp4.")
-
-    final_dur = get_media_duration(OUTPUT_VIDEO)
-    full_text = " ".join(x["text"] for x in lines)
-    meta = {
-        "title": lesson["title"],
-        "description": (
-            f"{full_text}\n\n"
-            "#IslamicShorts #AkhriZamana #UrduReminder #IslamicReminder #Shorts"
-        ),
-        "video_path": str(OUTPUT_VIDEO),
-        "duration_seconds": round(final_dur, 2),
-        "clips_count": len(edited_clips),
-    }
-    OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) successfully.")
-
-
-if __name__ == "__main__":
-    main()
