@@ -247,16 +247,16 @@ def process_continuous_voice(raw_mp3: Path, clean_wav: Path) -> float:
 
 
 def build_ambient_music_track(duration_sec: float, out_wav: Path) -> None:
-    # Audible, calm atmospheric pad (warm chord + gentle pulse) clearly audible beneath voice
+    # Smooth moody minor-warm pad without tremolo buzz/hiss
     dur = max(10.0, round(duration_sec + 1.0, 2))
     fc = (
         f"sine=frequency=110:sample_rate=44100:duration={dur}[n1];"
-        f"sine=frequency=146.83:sample_rate=44100:duration={dur}[n2];"
+        f"sine=frequency=164.81:sample_rate=44100:duration={dur}[n2];"
         f"sine=frequency=220:sample_rate=44100:duration={dur}[n3];"
-        f"sine=frequency=293.66:sample_rate=44100:duration={dur}[n4];"
-        "[n1][n2][n3][n4]amix=inputs=4:weights='0.45 0.35 0.30 0.20',"
-        "lowpass=f=650,tremolo=f=0.35:d=0.25,volume=0.14,"
-        f"afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5"
+        f"sine=frequency=277.18:sample_rate=44100:duration={dur}[n4];"
+        "[n1][n2][n3][n4]amix=inputs=4:weights='0.45 0.30 0.20 0.12',"
+        "lowpass=f=480,highpass=f=75,volume=0.11,"
+        f"afade=t=in:st=0:d=1.5,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5"
     )
     cmd = [
         "ffmpeg",
@@ -281,7 +281,7 @@ def mix_voice_and_music(voice_wav: Path, music_wav: Path, mixed_wav: Path) -> No
         "-i",
         str(music_wav),
         "-filter_complex",
-        "[0:a]volume=1.10[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-15:TP=-1.5:LRA=10[aout]",
+        "[0:a]volume=1.12[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-15:TP=-1.5:LRA=10[aout]",
         "-map",
         "[aout]",
         "-ar",
@@ -370,7 +370,6 @@ def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
-    # Minimal zoom (wide 9:16 framing) with subtle smooth motion so video doesn't look overly zoomed
     if idx % 2 == 0:
         crop_w, crop_h = 1020, 1813
         x_expr = "(iw-ow)/2 + ((iw-ow)*0.15)*sin(t*0.6)"
@@ -419,7 +418,6 @@ def _format_ass_time(sec: float) -> str:
 
 
 def _build_moving_caption_chunks(lines: list[dict], total_duration: float) -> list[dict]:
-    # Split each line into short 2-3 word chunks so subtitles keep changing dynamically with speech
     chunks: list[dict] = []
     weights: list[int] = []
     raw_texts: list[str] = []
@@ -459,7 +457,7 @@ def burn_ass_captions(
     font_name: str,
     font_file: str,
 ) -> None:
-    # Larger, bold Urdu captions positioned cleanly with subtle slide/pop feel
+    # Clean, balanced professional Urdu captions with crisp outline & subtle fade (no box/stretch)
     header = (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
@@ -470,8 +468,8 @@ def burn_ass_captions(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Default,{font_name},84,&H00FFFFFF,&H0000FFFF,&H00000000,&HB0000000,"
-        "-1,0,0,0,104,102,0,0,3,4,2,2,50,50,380,1\n\n"
+        f"Style: Default,{font_name},78,&H00FFFFFF,&H0000FFFF,&H00000000,&H64000000,"
+        "-1,0,0,0,100,100,0,0,1,4,2,2,55,55,360,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
@@ -481,9 +479,8 @@ def burn_ass_captions(
         start_str = _format_ass_time(seg["start"])
         end_str = _format_ass_time(seg["end"])
         clean_txt = seg["text"].replace("{", "").replace("}", "").strip()
-        # Subtle upward entrance movement so text feels active rather than static
-        animated_txt = f"{{\\fad(80,60)\\move(540,1570,540,1535,0,160)}}{clean_txt}"
-        events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{animated_txt}")
+        styled_txt = f"{{\\fad(90,70)}}{clean_txt}"
+        events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{styled_txt}")
 
     ass_path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
 
@@ -550,7 +547,6 @@ def main() -> None:
     build_ambient_music_track(total_voice_dur, ambient_music_wav)
     mix_voice_and_music(full_voice_wav, ambient_music_wav, mixed_audio_wav)
 
-    # Distribute total duration smoothly across clips based on word count
     word_counts = [max(3, len(x["text"].split())) for x in lines]
     total_words = sum(word_counts) or len(lines)
     line_durations: list[float] = []
