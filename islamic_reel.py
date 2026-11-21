@@ -15,39 +15,111 @@ OUTPUT_META = Path("video_meta.json")
 
 FALLBACK_STORIES = [
     {
-        "id": "fallback_01_dil_aur_waqt",
-        "title": "Aakhri Zamana Aur Dil Ka Sukoon | Islamic Short",
+        "id": "story_01_bilal_aur_waqt",
+        "title": "Aakhri Zamana Ka Qissa: Jab Waqt Hath Se Nikal Gaya | Islamic Short",
         "scenes": [
-            {"text": "Aakhri zamane ki ek badi nishani yeh hogi ke logon ke paas waqt aur sahoolatein to bohat hongi,", "query": "city traffic night lights"},
-            {"text": "par dil ka sukoon aur bharosa kam hota jayega.", "query": "rain window moody"},
-            {"text": "Ek shakhs subah se shaam tak screens aur shor mein khoya rehta tha,", "query": "smartphone dark night"},
-            {"text": "usay lagta tha woh sab kuch jaanta hai,", "query": "people walking crowd"},
-            {"text": "par jab achanak aazmaish aayi to uska dil bechain ho gaya.", "query": "storm clouds ocean"},
-            {"text": "Phir usne rozana thora waqt nikaal kar Allah ka zikr,", "query": "mosque architecture peaceful"},
-            {"text": "istighfar, aur apni nazar aur zuban ki hifazat shuru ki.", "query": "book pages soft light"},
-            {"text": "Aakhri zamane ki sab se badi tip yeh hai:", "query": "candle flame dark"},
-            {"text": "fitnon se larne se pehle apna dil,", "query": "calm water sunset"},
-            {"text": "apna waqt, aur apna aakhri hisab sambhalo.", "query": "sunrise mountain rays"},
-            {"text": "Kyunki sukoon shor mein nahi, balkay rab ke qareeb aane mein hai.", "query": "night sky stars"},
-            {"text": "Apni rooh aur amal ko aaj hi durust kar lo.", "query": "morning leaves sunlight"},
+            {
+                "text": "Aakhri zamane mein sab se bada dhoka yeh hai ke insaan samajhta hai uske paas abhi bohat waqt hai.",
+                "query": "hourglass sand time close up",
+            },
+            {
+                "text": "Bilal aik kamyab freelancer tha jo din raat phone aur laptop par masroof rehta tha.",
+                "query": "man working laptop night desk",
+            },
+            {
+                "text": "Namaz aaye to kehta, bas yeh kaam poora kar loon, phir parh loonga.",
+                "query": "clock ticking evening light",
+            },
+            {
+                "text": "Rishtedar ya walidain baat karte to woh kaan mein earbuds laga kar aage barh jata.",
+                "query": "person wearing headphones walking",
+            },
+            {
+                "text": "Ek din uske qareebi dost ka achanak inteqal ho gaya, aur bilal ka dil sunn reh gaya.",
+                "query": "rainy window dark mood",
+            },
+            {
+                "text": "Janaze mein kharay ho kar usne pehli baar mehsoos kiya ke dolat aur screens wahan saath nahi jaate.",
+                "query": "cemetery trees peaceful morning",
+            },
+            {
+                "text": "Us raat bilal ghar aaya, wuzu kiya, aur ro ro kar pichli kotahiyon ki maafi mangi.",
+                "query": "water splashing hands wuzu",
+            },
+            {
+                "text": "Usne samajh liya ke aakhri zamane ke fitnon se bachne ka pehla qadam apne waqt ko Allah ke hawale karna hai.",
+                "query": "mosque courtyard peaceful light",
+            },
+            {
+                "text": "Aaj ki practical tip yeh hai: har namaz se das minute pehle apna kaam aur mobile side par rakh dein.",
+                "query": "smartphone placed on table",
+            },
+            {
+                "text": "Namaz ke baad sirf teen minute khamoshi se baith kar apni aakhirat aur niyyat ka jaiza lein.",
+                "query": "person sitting quietly reflection",
+            },
+            {
+                "text": "Jab aap waqt ka haq ada karte hain, to Allah aapke dil mein barakat aur sukoon daal deta hai.",
+                "query": "sunrise rays over horizon",
+            },
+            {
+                "text": "Aaj ka yeh chhota sa badlao kal aapki nijaat ka zariya ban sakta hai.",
+                "query": "green leaves sunlight nature",
+            },
         ],
     },
     {
-        "id": "fallback_02_zuban_aur_fitna",
-        "title": "Aakhri Zamana Mein Zuban Ki Hifazat | Islamic Short",
+        "id": "story_02_ayesha_aur_zuban",
+        "title": "Aakhri Zamana Mein Aik Lafz Ka Asar | Islamic Short",
         "scenes": [
-            {"text": "Aakhri zamane mein baatein bohat hongi,", "query": "crowded street people"},
-            {"text": "par sach aur jhoot ke darmiyan farq dhundla parne lagega.", "query": "fog forest trees mist"},
-            {"text": "Ek dost ne bina tehqeeq ke aik baat aage barha di,", "query": "typing phone screen"},
-            {"text": "aur us chhoti si baat ne ghar aur rishton mein doori paida kar di.", "query": "empty chair shadow room"},
-            {"text": "Jab usay apni ghalti ka ehsaas hua to usne seekha", "query": "man thinking evening"},
-            {"text": "ke har suni sunayi baat phailana gunah aur fitne ka darwaza kholta hai.", "query": "fire sparks dark"},
-            {"text": "Aakhri zamane ki ahem tip yeh hai:", "query": "river water stones"},
-            {"text": "bolne aur share karne se pehle socho", "query": "lake reflection sunset"},
-            {"text": "ke kya yeh baat Allah ko razi karegi", "query": "mosque sky dome"},
-            {"text": "ya kisi ka dil dukhayegi.", "query": "rain drops leaf"},
-            {"text": "Apni zuban ko sambhalna bhi aik badi ibadat hai.", "query": "golden sunlight nature"},
-            {"text": "Sach aur khair ki baat hi aage barhao.", "query": "clear blue sky clouds"},
+            {
+                "text": "Aakhri zamane mein aksar log baray gunahon se nahi, balkay be-ehtiyati ki baaton se phisalte hain.",
+                "query": "crowd walking city street",
+            },
+            {
+                "text": "Ayesha ko aik group mein kisi ke khilaf suni sunayi baat mili aur usne bina soche aage bhej di.",
+                "query": "typing message phone screen",
+            },
+            {
+                "text": "Woh baat aage se aage phailti gayi aur aik be-qusoor insaan ki izzat aur rishtay toot gaye.",
+                "query": "broken glass shadow dark",
+            },
+            {
+                "text": "Jab ayesha ko haqeeqat ka pata chala to usay bohat pachtawa hua ke uski ungliyon se kitna nuqsan ho gaya.",
+                "query": "woman regret evening light",
+            },
+            {
+                "text": "Usne khud aage barh kar sach wazeh kiya aur jis ka dil dukha tha us se maafi mangi.",
+                "query": "two people talking calm",
+            },
+            {
+                "text": "Aakhri zamane mein zuban aur forward button dono aik badi aazmaish hain.",
+                "query": "spark ember dark background",
+            },
+            {
+                "text": "Jo baat yaqeen aur adab ke baghair aage barhayi jaye, woh dil aur ghar dono ko kamzor karti hai.",
+                "query": "foggy road trees morning",
+            },
+            {
+                "text": "Is ki practical tip yeh hai: koi bhi baat ya post forward karne se pehle khud se do sawal poochein.",
+                "query": "open book wooden table",
+            },
+            {
+                "text": "Pehla sawal: kya yeh sach hai? Aur doosra sawal: kya is se kisi ka dil to nahi dukhega?",
+                "query": "calm lake reflection sunset",
+            },
+            {
+                "text": "Agar jawab haan aur na mein ho, tab hi aage barhayein, warna khamoshi ikhtiyar kar lein.",
+                "query": "quiet mountain peak clouds",
+            },
+            {
+                "text": "Zuban ki hifazat insaan ko fitnon se bachati hai aur dil ko naram rakhti hai.",
+                "query": "lantern light warm night",
+            },
+            {
+                "text": "Apni baat aur kirdar ko aaj hi sanwar lein.",
+                "query": "golden hour sky trees",
+            },
         ],
     },
 ]
@@ -87,29 +159,31 @@ def generate_story_with_gemini(api_key: str, used_ids: list[str]) -> dict | None
 
     recent_list = ", ".join(used_ids[-15:]) if used_ids else "none"
     prompt = (
-        "You are an Islamic content scriptwriter for 35-second vertical YouTube Shorts in Roman Urdu. "
-        "Create ONE fresh 'Aakhri Zamana' (End Times) story with a short relatable story and a practical tip at the end. "
+        "You are an Islamic storytelling scriptwriter for 35-40 second vertical YouTube Shorts in clear, natural Roman Urdu. "
+        "Write ONE rich, emotional, and creative 'Aakhri Zamana' (End Times) story with a named character, a clear turning point, and a practical daily tip at the end. "
+        "Do NOT write dry generic slogans or disconnected lines; every scene must flow smoothly like a gripping story. "
         f"Avoid these previous topic IDs/themes: {recent_list}. "
         "Output ONLY a valid JSON object (no markdown, no extra text) with this exact structure:\n"
         "{\n"
         '  "id": "unique_short_snake_case_id",\n'
-        '  "title": "Engaging Urdu/English Short Title | Islamic Short",\n'
+        '  "title": "Compelling Story Title | Islamic Short",\n'
         '  "scenes": [\n'
-        '    {"text": "Short Roman Urdu narration line (7-12 words)", "query": "2-4 English stock video keywords matching this exact line"}\n'
+        '    {"text": "Clear natural Roman Urdu sentence (10-16 words)", "query": "3-4 English stock video keywords matching this exact moment"}\n'
         "  ]\n"
         "}\n"
         "Rules:\n"
-        "- Include 12 scenes total so total narration is around 105-130 words (~33-38 seconds when spoken in Urdu).\n"
-        "- Scenes 1-2: Aakhri zamana sign/hook.\n"
-        "- Scenes 3-7: Short realistic story showing the test/situation.\n"
-        "- Scenes 8-12: Clear practical tip and spiritual reminder.\n"
-        "- Every 'query' must match the exact action/mood of that scene's 'text'."
+        "- Include 12 scenes total so total narration is around 125-150 words (~35-42 seconds).\n"
+        "- Scene 1: Strong hook about Aakhri Zamana.\n"
+        "- Scenes 2-7: A vivid, relatable story about a character facing a modern/end-times test and realizing the truth.\n"
+        "- Scenes 8-11: Clear, actionable practical tip step-by-step.\n"
+        "- Scene 12: Memorable closing reminder.\n"
+        "- Use simple, easy-to-pronounce Roman Urdu words (avoid awkward abbreviations or overly complex words)."
     )
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key)}"
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.85},
+        "generationConfig": {"temperature": 0.9},
     }
     req = urllib.request.Request(
         url,
@@ -141,11 +215,11 @@ def generate_story_with_gemini(api_key: str, used_ids: list[str]) -> dict | None
                 })
         if len(valid_scenes) < 10:
             return None
-        story_id = str(parsed.get("id") or f"gemini_{random.randint(10000, 99999)}")
-        title = str(parsed.get("title") or "Aakhri Zamana Story & Tip | Islamic Short")
+        story_id = str(parsed.get("id") or f"story_{random.randint(10000, 99999)}")
+        title = str(parsed.get("title") or "Aakhri Zamana Ka Qissa | Islamic Short")
         return {"id": story_id, "title": title, "scenes": valid_scenes}
     except Exception as e:
-        print(f"Gemini generation failed, using fallback: {e}")
+        print(f"Gemini generation failed, using fallback story: {e}")
         return None
 
 
@@ -163,9 +237,32 @@ def pick_story(used_ids: list[str], gemini_key: str) -> dict:
     return story
 
 
-async def generate_voice(text: str, mp3_path: Path) -> None:
-    communicate = edge_tts.Communicate(text=text, voice="ur-PK-AsadNeural", rate="-4%")
+async def generate_voice_segment(text: str, mp3_path: Path) -> None:
+    communicate = edge_tts.Communicate(
+        text=text,
+        voice="ur-PK-AsadNeural",
+        rate="-8%",
+        pitch="-2Hz",
+    )
     await communicate.save(str(mp3_path))
+
+
+def normalize_audio_segment(raw_mp3: Path, clean_wav: Path) -> float:
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(raw_mp3),
+        "-af",
+        "loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=0.25",
+        "-ar",
+        "44100",
+        "-ac",
+        "1",
+        str(clean_wav),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return get_media_duration(clean_wav)
 
 
 def get_media_duration(file_path: Path) -> float:
@@ -244,7 +341,7 @@ def build_fallback_clip(dest: Path, clip_dur: float, idx: int) -> None:
 
 def normalize_clip(raw_path: Path, out_path: Path, clip_dur: float, idx: int) -> bool:
     zoom_expr = (
-        "min(zoom+0.0008,1.12)" if idx % 2 == 0 else "if(eq(on,1),1.10,max(zoom-0.0008,1.0))"
+        "min(zoom+0.0007,1.11)" if idx % 2 == 0 else "if(eq(on,1),1.09,max(zoom-0.0007,1.0))"
     )
     vf = (
         "scale=1200:2134:force_original_aspect_ratio=increase,"
@@ -252,7 +349,7 @@ def normalize_clip(raw_path: Path, out_path: Path, clip_dur: float, idx: int) ->
         f"zoompan=z='{zoom_expr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={max(1, int(round(clip_dur * 30)))}:s=1080x1920:fps=30,"
         "eq=contrast=1.05:brightness=0.01:saturation=1.08,"
         f"trim=duration={clip_dur},setpts=PTS-STARTPTS,"
-        f"fade=t=in:st=0:d=0.22,fade=t=out:st={max(0.1, clip_dur - 0.22)}:d=0.22"
+        f"fade=t=in:st=0:d=0.2,fade=t=out:st={max(0.1, clip_dur - 0.2)}:d=0.2"
     )
     cmd = [
         "ffmpeg",
@@ -389,22 +486,54 @@ def main() -> None:
     story = pick_story(used_ids, gemini_key)
     scenes = story["scenes"]
 
-    full_narration = " ".join(s["text"] for s in scenes)
-    voice_mp3 = work_dir / "voice.mp3"
-    asyncio.run(generate_voice(full_narration, voice_mp3))
-    voice_dur = get_media_duration(voice_mp3)
+    # Generate clean, normalized voice per scene so every clip & caption syncs with the exact spoken sentence
+    voice_segments: list[Path] = []
+    scene_durations: list[float] = []
+    for idx, scene in enumerate(scenes):
+        raw_mp3 = work_dir / f"voice_{idx:02d}.mp3"
+        clean_wav = work_dir / f"voice_{idx:02d}.wav"
+        asyncio.run(generate_voice_segment(scene["text"], raw_mp3))
+        seg_dur = normalize_audio_segment(raw_mp3, clean_wav)
+        seg_dur = max(2.4, round(seg_dur, 2))
+        voice_segments.append(clean_wav)
+        scene_durations.append(seg_dur)
 
-    total_words = sum(max(1, len(s["text"].split())) for s in scenes)
-    target_duration = max(32.0, voice_dur + 1.0)
+    audio_list = work_dir / "audio.txt"
+    with open(audio_list, "w", encoding="utf-8") as f:
+        for wav in voice_segments:
+            f.write(f"file '{wav.resolve()}'\n")
+
+    full_voice_wav = work_dir / "full_voice.wav"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(audio_list),
+            "-c:a",
+            "pcm_s16le",
+            str(full_voice_wav),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    total_voice_dur = get_media_duration(full_voice_wav)
+    target_duration = max(32.0, round(total_voice_dur, 2))
+    if target_duration > total_voice_dur and scene_durations:
+        scene_durations[-1] = round(scene_durations[-1] + (target_duration - total_voice_dur), 2)
 
     used_urls: set[str] = set()
     normalized_clips: list[Path] = []
     caption_segments: list[dict] = []
     cursor_time = 0.0
 
-    for idx, scene in enumerate(scenes):
-        words_ratio = max(1, len(scene["text"].split())) / total_words
-        scene_dur = max(2.2, round(target_duration * words_ratio, 2))
+    for idx, (scene, scene_dur) in enumerate(zip(scenes, scene_durations)):
         norm_file = work_dir / f"scene_{idx:02d}.mp4"
 
         ok = False
@@ -468,7 +597,7 @@ def main() -> None:
             "-i",
             str(captioned_video),
             "-i",
-            str(voice_mp3),
+            str(full_voice_wav),
             "-map",
             "0:v:0",
             "-map",
@@ -478,7 +607,7 @@ def main() -> None:
             "-c:a",
             "aac",
             "-b:a",
-            "128k",
+            "160k",
             "-shortest",
             str(OUTPUT_VIDEO),
         ],
@@ -488,6 +617,7 @@ def main() -> None:
     )
 
     final_dur = get_media_duration(OUTPUT_VIDEO)
+    full_narration = " ".join(s["text"] for s in scenes)
     meta = {
         "title": story["title"],
         "description": (
@@ -499,7 +629,7 @@ def main() -> None:
         "clips_count": len(normalized_clips),
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) with {len(normalized_clips)} clips & captions.")
+    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) with {len(normalized_clips)} clips & synced voice/captions.")
 
 
 if __name__ == "__main__":
