@@ -10,7 +10,7 @@ from pathlib import Path
 import edge_tts
 
 HISTORY_FILE = Path("islamic_history.json")
-OUTPUT_VIDEO = Path("final_short.mp4")
+OUTPUT_VIDEO = Path("final_islamic_short.mp4")
 OUTPUT_META = Path("video_meta.json")
 
 FALLBACK_STORIES = [
