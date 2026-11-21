@@ -679,4 +679,86 @@ def main() -> None:
             if url:
                 raw_clip = work_dir / f"raw_{idx:02d}.mp4"
                 if download_file(url, raw_clip):
-                    ok = edit_pro_clip(raw_clip
+                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
+                    if ok:
+                        break
+        if not ok:
+            build_fallback_clip(out_clip, clip_dur, idx)
+        edited_clips.append(out_clip)
+
+    clips_concat = work_dir / "clips_concat.txt"
+    with open(clips_concat, "w", encoding="utf-8") as f:
+        for c in edited_clips:
+            f.write(f"file '{c.resolve()}'\n")
+
+    merged_video = work_dir / "merged.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(clips_concat),
+            "-c:v",
+            "copy",
+            str(merged_video),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    caption_chunks = _build_moving_caption_chunks(sections, total_voice_dur)
+    captioned_video = work_dir / "captioned.mp4"
+    ass_file = work_dir / "captions.ass"
+    burn_ass_captions(merged_video, captioned_video, caption_chunks, ass_file, font_name, font_file)
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(captioned_video),
+            "-i",
+            str(mixed_audio_wav),
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-shortest",
+            str(OUTPUT_VIDEO),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    if not OUTPUT_VIDEO.exists() or OUTPUT_VIDEO.stat().st_size == 0:
+        raise RuntimeError("Failed to generate final_islamic_short.mp4.")
+
+    final_dur = get_media_duration(OUTPUT_VIDEO)
+    meta = {
+        "title": lesson["title"],
+        "description": (
+            f"{full_text}\n\n"
+            "#IslamicShorts #AkhriZamana #UrduReminder #IslamicReminder #Shorts"
+        ),
+        "video_path": str(OUTPUT_VIDEO),
+        "duration_seconds": round(final_dur, 2),
+        "clips_count": len(edited_clips),
+    }
+    OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) successfully.")
+
+
+if __name__ == "__main__":
+    main()
