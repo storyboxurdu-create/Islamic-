@@ -12,6 +12,7 @@ import edge_tts
 HISTORY_FILE = Path("islamic_history.json")
 OUTPUT_VIDEO = Path("final_islamic_short.mp4")
 OUTPUT_META = Path("video_meta.json")
+OUTPUT_THUMBNAIL = Path("thumbnail.jpg")
 
 LOCAL_MUSIC_CANDIDATES = [
     Path("assets/moody_music.mp3"),
@@ -103,6 +104,62 @@ def _normalize_urdu_pronunciation(text: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def _build_dynamic_tags(raw_tags: object, topic: str, title: str, sections: list[dict]) -> list[str]:
+    tags: list[str] = []
+    if isinstance(raw_tags, list):
+        for t in raw_tags:
+            s = str(t).replace("#", "").strip()
+            if s and len(s) <= 45 and s not in tags:
+                tags.append(s)
+
+    combined = f"{topic} {title} " + " ".join(x.get("text", "") for x in sections)
+    c_low = combined.lower()
+
+    topic_specific: list[str] = []
+    if "dajjal" in c_low or "دجال" in combined:
+        topic_specific += ["Dajjal", "Fitna Dajjal", "Dajjal In Islam", "دجال کا فتنہ", "دجال"]
+    if "yajooj" in c_low or "majooj" in c_low or "یاجوج" in combined or "ماجوج" in combined:
+        topic_specific += ["Yajooj Majooj", "Gog and Magog", "یاجوج ماجوج", "یاجوج ماجوج کا واقعہ"]
+    if "aakhri" in c_low or "akhri" in c_low or "آخری زمانہ" in combined or "قیامت" in combined:
+        topic_specific += ["Akhri Zamana", "Aakhri Zamana", "آخری زمانہ", "قیامت کی نشانیاں"]
+    if "hadees" in c_low or "hadith" in c_low or "حدیث" in combined:
+        topic_specific += ["Hadees", "Hadees Sharif", "حدیث نبوی", "حدیث پاک"]
+    if "nabi" in c_low or "nabiyon" in c_low or "نبی" in combined or "انبیاء" in combined:
+        topic_specific += ["Nabiyon Ke Waqiat", "Prophet Stories Urdu", "انبیاء کے واقعات", "نبیوں کے سچے واقعات"]
+    if "sahaba" in c_low or "صحابی" in combined or "صحابہ" in combined:
+        topic_specific += ["Sahaba Ke Waqiat", "Sahaba Stories Urdu", "صحابہ کے واقعات", "صحابہ کے سچے واقعات"]
+
+    # Extract short Urdu words from script to add relevant content keywords
+    urdu_words = re.findall(r"[\u0600-\u06FF]{3,14}", " ".join(x.get("text", "") for x in sections[:2]))
+    for uw in urdu_words[:6]:
+        if uw not in topic_specific:
+            topic_specific.append(uw)
+
+    viral_reach_tags = [
+        "Islamic Shorts",
+        "Urdu Islamic Shorts",
+        "Islamic Reminder",
+        "Urdu Waqiat",
+        "Emotional Islamic Shorts",
+        "اسلامک شارٹس",
+        "اردو واقعات",
+        "Shorts",
+    ]
+
+    for item in topic_specific + viral_reach_tags:
+        clean_item = item.replace("#", "").strip()
+        if clean_item and len(clean_item) <= 45 and clean_item not in tags:
+            tags.append(clean_item)
+
+    final_tags: list[str] = []
+    total_len = 0
+    for tag in tags[:20]:
+        if total_len + len(tag) + 1 <= 460:
+            final_tags.append(tag)
+            total_len += len(tag) + 1
+    return final_tags
+
+
 def _list_available_gemini_models(api_key: str) -> list[str]:
     encoded_key = urllib.parse.quote(api_key)
     for base in (
@@ -151,18 +208,23 @@ def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
         f"on this exact topic: {chosen_topic}. "
         f"Opening style: {chosen_opening}\n"
         "CONTENT RULES:\n"
-        "- Stay true to the chosen topic (Dajjal, Yajooj Majooj, Aakhri Zamana, Hadees, Nabiyon ke sachay waqiat, or Sahaba ke achhay waqiat). When telling a true event from history/tradition, keep it respectful, accurate, and spiritually meaningful without making up false claims.\n"
+        "- Stay true to the chosen topic (Dajjal, Yajooj Majooj, Aakhri Zamana, Hadees, Nabiyon ke sachay waqiat, or Sahaba ke achhay waqiat). Keep historical/traditional events respectful and accurate.\n"
         "- Do NOT repeat previous scripts, openings, or phrasing from the list below.\n"
         "- Sound like a sincere, grounded Urdu narrator speaking naturally from the heart—never robotic or repetitive.\n"
-        "- Use clear everyday Pakistani/Urdu words (وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، سچائی، ایمان، صبر) with zero English or Roman words.\n"
+        "- Use clear everyday Pakistani/Urdu words (وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، سچائی، ایمان، صبر) with zero English or Roman words in 'sections'.\n"
         "- Provide 5 gripping sections (~16-20 Urdu words each, total ~85-95 Urdu words).\n"
+        "- Create a high-CTR, curiosity-driven 'title' specifically matching THIS video's exact event/message (under 80 chars, in Urdu script + optional short English topic tag like '| Dajjal' or '| Hadees').\n"
+        "- Create a short punchy Urdu thumbnail headline ('thumb_text', 3-5 Urdu words) matching this specific video.\n"
+        "- Create 12 targeted YouTube 'tags' specifically tailored to this video's topic, key names/concepts, and high-reach Urdu/English Shorts search terms (no '#' symbols).\n"
         "- Give each section a dramatic, logical visual 'query' (2-3 English words) and 'backup' (2-3 English words).\n"
         "PREVIOUS SCRIPTS TO AVOID REPEATING:\n"
         f"{avoid_text}\n"
         "Output ONLY valid JSON:\n"
         "{\n"
         f'  "id": "sabaq_{run_nonce}",\n'
-        '  "title": "اردو عنوان | Islamic Short",\n'
+        '  "title": "اس ویڈیو کے مطابق پرکشش اردو عنوان",\n'
+        '  "thumb_text": "اردو تھمب نیل سرخی",\n'
+        '  "tags": ["اس ویڈیو کا ٹیگ", "Islamic Shorts"],\n'
         '  "summary": "Short 1-line summary of what this specific video covers",\n'
         '  "sections": [\n'
         '    {"text": "اردو بات", "query": "stormy ocean dark", "backup": "dark waves night"}\n'
@@ -241,12 +303,27 @@ def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
     lesson_id = str(parsed.get("id") or f"sabaq_{run_nonce}")
     if lesson_id in used_ids:
         lesson_id = f"{lesson_id}_{random.randint(100, 999)}"
-    raw_title = _normalize_urdu_pronunciation(str(parsed.get("title") or ""))
-    title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کی بات"
+
+    raw_title = str(parsed.get("title") or "").strip()
+    clean_title = re.sub(r"\s+", " ", raw_title).strip()
+    title = clean_title if _has_urdu_script(clean_title) else "آخری زمانہ کی اہم بات"
+
+    raw_thumb = _normalize_urdu_pronunciation(str(parsed.get("thumb_text") or ""))
+    thumb_text = raw_thumb if _has_urdu_script(raw_thumb) else _normalize_urdu_pronunciation(title.split("|")[0]).strip()
+
+    tags = _build_dynamic_tags(parsed.get("tags"), chosen_topic, title, valid_sections)
     summary = str(parsed.get("summary") or chosen_topic).strip()
     print(f"Selected topic: {chosen_topic}")
-    print(f"Script summary: {summary}")
-    return {"id": lesson_id, "title": title, "summary": summary, "sections": valid_sections}
+    print(f"Generated title: {title}")
+    print(f"Generated tags ({len(tags)}): {', '.join(tags)}")
+    return {
+        "id": lesson_id,
+        "title": title,
+        "thumb_text": thumb_text,
+        "tags": tags,
+        "summary": summary,
+        "sections": valid_sections,
+    }
 
 
 def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
@@ -605,6 +682,103 @@ def _build_moving_caption_chunks(sections: list[dict], total_duration: float) ->
     return chunks
 
 
+def _render_ass_on_image_or_video(
+    input_media: Path,
+    output_media: Path,
+    ass_text: str,
+    ass_path: Path,
+    font_file: str,
+    is_still_image: bool = False,
+) -> bool:
+    ass_path.write_text(ass_text, encoding="utf-8")
+    escaped_ass = str(ass_path.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    fonts_dir = ""
+    if font_file:
+        fonts_dir = str(Path(font_file).parent).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+    vf_sub = f"subtitles='{escaped_ass}'" + (f":fontsdir='{fonts_dir}'" if fonts_dir else "")
+    cmd = ["ffmpeg", "-y", "-i", str(input_media), "-vf", vf_sub]
+    if is_still_image:
+        cmd += ["-frames:v", "1", "-q:v", "2", str(output_media)]
+    else:
+        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "21", "-pix_fmt", "yuv420p", str(output_media)]
+
+    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return res.returncode == 0 and output_media.exists() and output_media.stat().st_size > 2000
+
+
+def generate_thumbnail(
+    first_clip: Path,
+    thumb_text: str,
+    work_dir: Path,
+    font_name: str,
+    font_file: str,
+) -> None:
+    base_frame = work_dir / "thumb_base.png"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(first_clip),
+            "-ss",
+            "0.5",
+            "-vframes",
+            "1",
+            "-vf",
+            "scale=1080:1920,eq=contrast=1.22:brightness=-0.10:saturation=1.15,vignette=PI/3.5",
+            str(base_frame),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if not base_frame.exists() or base_frame.stat().st_size < 2000:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=0x0b1021:s=1080x1920",
+                "-vframes",
+                "1",
+                str(base_frame),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    clean_headline = thumb_text.replace("{", "").replace("}", "").strip() or "آخری زمانہ کا پیغام"
+    ass_header = (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1080\n"
+        "PlayResY: 1920\n"
+        "ScaledBorderAndShadow: yes\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        f"Style: Thumb,{font_name},96,&H0000FFFF,&H0000FFFF,&H00000000,&HB0000000,"
+        "-1,0,0,0,105,105,0,0,3,6,4,5,70,70,220,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        f"Dialogue: 0,0:00:00.00,0:00:05.00,Thumb,,0,0,0,,{clean_headline}\n"
+    )
+    ok = _render_ass_on_image_or_video(
+        base_frame,
+        OUTPUT_THUMBNAIL,
+        ass_header,
+        work_dir / "thumb.ass",
+        font_file,
+        is_still_image=True,
+    )
+    if not ok:
+        subprocess.run(["cp", "-f", str(base_frame), str(OUTPUT_THUMBNAIL)], check=False)
+
+
 def burn_ass_captions(
     input_video: Path,
     output_video: Path,
@@ -637,33 +811,15 @@ def burn_ass_captions(
         styled_txt = f"{{\\fad(90,70)}}{clean_txt}"
         events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{styled_txt}")
 
-    ass_path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
-
-    escaped_ass = str(ass_path.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
-    fonts_dir = ""
-    if font_file:
-        fonts_dir = str(Path(font_file).parent).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
-
-    vf_sub = f"subtitles='{escaped_ass}'" + (f":fontsdir='{fonts_dir}'" if fonts_dir else "")
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        str(input_video),
-        "-vf",
-        vf_sub,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "21",
-        "-pix_fmt",
-        "yuv420p",
-        str(output_video),
-    ]
-    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if res.returncode != 0 or not output_video.exists():
+    ok = _render_ass_on_image_or_video(
+        input_video,
+        output_video,
+        header + "\n".join(events) + "\n",
+        ass_path,
+        font_file,
+        is_still_image=False,
+    )
+    if not ok:
         subprocess.run(
             ["ffmpeg", "-y", "-i", str(input_video), "-c:v", "copy", str(output_video)],
             check=True,
@@ -688,122 +844,3 @@ def main() -> None:
     history.setdefault("used_ids", []).append(lesson["id"])
     history.setdefault("recent_summaries", []).append(lesson["summary"])
     save_history(history)
-
-    sections = lesson["sections"]
-    print(f"Generated lesson '{lesson['id']}' with {len(sections)} sections.")
-
-    full_text = " ".join(x["text"].strip() for x in sections)
-    full_voice_wav = work_dir / "full_voice.wav"
-    total_voice_dur = max(12.0, round(build_continuous_voice(full_text, work_dir, full_voice_wav), 2))
-
-    moody_music_wav = work_dir / "moody_music.wav"
-    mixed_audio_wav = work_dir / "mixed_audio.wav"
-    has_music = prepare_moody_music_track(total_voice_dur, work_dir, moody_music_wav)
-    mix_voice_and_music(full_voice_wav, moody_music_wav, has_music, mixed_audio_wav)
-
-    sec_word_counts = [max(4, len(x["text"].split())) for x in sections]
-    total_words = sum(sec_word_counts) or len(sections)
-    sec_durations: list[float] = []
-    acc = 0.0
-    for idx, wc in enumerate(sec_word_counts):
-        if idx == len(sec_word_counts) - 1:
-            d = max(2.0, round(total_voice_dur - acc, 2))
-        else:
-            d = max(2.0, round((total_voice_dur * wc) / total_words, 2))
-            acc = round(acc + d, 2)
-        sec_durations.append(d)
-
-    used_urls: set[str] = set()
-    edited_clips: list[Path] = []
-
-    for idx, (item, clip_dur) in enumerate(zip(sections, sec_durations)):
-        out_clip = work_dir / f"clip_{idx:02d}.mp4"
-        ok = False
-        for q in (item.get("query", ""), item.get("backup", "")):
-            url = fetch_pixabay_clip(q, pixabay_key, used_urls)
-            if url:
-                raw_clip = work_dir / f"raw_{idx:02d}.mp4"
-                if download_file(url, raw_clip):
-                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
-                    if ok:
-                        break
-        if not ok:
-            build_fallback_clip(out_clip, clip_dur, idx)
-        edited_clips.append(out_clip)
-
-    clips_concat = work_dir / "clips_concat.txt"
-    with open(clips_concat, "w", encoding="utf-8") as f:
-        for c in edited_clips:
-            f.write(f"file '{c.resolve()}'\n")
-
-    merged_video = work_dir / "merged.mp4"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(clips_concat),
-            "-c:v",
-            "copy",
-            str(merged_video),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    caption_chunks = _build_moving_caption_chunks(sections, total_voice_dur)
-    captioned_video = work_dir / "captioned.mp4"
-    ass_file = work_dir / "captions.ass"
-    burn_ass_captions(merged_video, captioned_video, caption_chunks, ass_file, font_name, font_file)
-
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(captioned_video),
-            "-i",
-            str(mixed_audio_wav),
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-shortest",
-            str(OUTPUT_VIDEO),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    if not OUTPUT_VIDEO.exists() or OUTPUT_VIDEO.stat().st_size == 0:
-        raise RuntimeError("Failed to generate final_islamic_short.mp4.")
-
-    final_dur = get_media_duration(OUTPUT_VIDEO)
-    meta = {
-        "title": lesson["title"],
-        "description": (
-            f"{full_text}\n\n"
-            "#IslamicShorts #AkhriZamana #UrduReminder #IslamicReminder #Shorts"
-        ),
-        "video_path": str(OUTPUT_VIDEO),
-        "duration_seconds": round(final_dur, 2),
-        "clips_count": len(edited_clips),
-    }
-    OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) successfully.")
-
-
-if __name__ == "__main__":
-    main()
