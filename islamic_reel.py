@@ -26,137 +26,37 @@ FONT_SOURCES = [
     ),
 ]
 
-FALLBACK_STORIES = [
+FALLBACK_LESSONS = [
     {
-        "id": "urdu_story_01_waqt_aur_dil",
-        "title": "آخری زمانہ کا قصہ: جب وقت ہاتھ سے نکل گیا | Islamic Short",
-        "scenes": [
-            {
-                "text": "آخری زمانے کا سب سے بڑا دھوکہ یہ ہے کہ انسان سمجھتا ہے اس کے پاس ابھی بہت وقت ہے۔",
-                "query": "hourglass sand",
-                "backup_query": "clock time",
-            },
-            {
-                "text": "بلال ایک محنتی نوجوان تھا جو دن رات موبائل اور اسکرینز میں مصروف رہتا تھا۔",
-                "query": "man smartphone night",
-                "backup_query": "laptop dark",
-            },
-            {
-                "text": "اذان ہوتی تو وہ کہتا، بس یہ کام مکمل کر لوں، پھر نماز پڑھ لوں گا۔",
-                "query": "wall clock",
-                "backup_query": "evening desk",
-            },
-            {
-                "text": "گھر والوں کی بات بھی وہ ادھوری سنتا اور اپنی دنیا میں کھویا رہتا۔",
-                "query": "headphones walking",
-                "backup_query": "city crowd",
-            },
-            {
-                "text": "پھر ایک دن اس کے قریبی دوست کے اچانک انتقال کی خبر آئی تو بلال سُن رہ گیا۔",
-                "query": "rain window",
-                "backup_query": "dark clouds",
-            },
-            {
-                "text": "جنازے میں کھڑے ہو کر اسے پہلی بار احساس ہوا کہ دولت اور اسکرینز وہاں ساتھ نہیں جاتیں۔",
-                "query": "cemetery trees",
-                "backup_query": "graveyard morning",
-            },
-            {
-                "text": "اس رات گھر آ کر اس نے وضو کیا اور پچھلی غفلتوں پر دل سے توبہ کی۔",
-                "query": "water hands",
-                "backup_query": "washing hands",
-            },
-            {
-                "text": "اس نے سمجھ لیا کہ فتنوں سے بچنے کا پہلا قدم اپنے وقت کو اللہ کے حوالے کرنا ہے۔",
-                "query": "mosque dome",
-                "backup_query": "mosque night",
-            },
-            {
-                "text": "آج کی عملی ٹپ یہ ہے: ہر نماز سے دس منٹ پہلے موبائل اور کام ایک طرف رکھ دیں۔",
-                "query": "phone table",
-                "backup_query": "desk minimal",
-            },
-            {
-                "text": "نماز کے بعد صرف تین منٹ خاموشی سے بیٹھ کر اپنی نیت اور آخرت کا جائزہ لیں۔",
-                "query": "sitting meditation",
-                "backup_query": "quiet prayer",
-            },
-            {
-                "text": "جب آپ وقت کا حق ادا کرتے ہیں تو اللہ دل میں سکون اور برکت ڈال دیتا ہے۔",
-                "query": "sunrise mountains",
-                "backup_query": "morning sun",
-            },
-            {
-                "text": "آج کا یہ چھوٹا سا قدم کل آپ کی نجات کا ذریعہ بن سکتا ہے۔",
-                "query": "green leaves",
-                "backup_query": "nature sunlight",
-            },
+        "id": "sabaq_01_be_hissi",
+        "title": "آخری زمانہ کا سبق: دل کی بے حسی | Islamic Short",
+        "lines": [
+            {"text": "آخری زمانے کا سب سے خطرناک حال یہ ہے کہ گناہ عام ہو جائیں اور دل کو بوجھ ہی نہ لگے۔", "query": "dark clouds", "backup": "rain night"},
+            {"text": "ہم روز نئی خبریں، فتنے اور بے حیائی دیکھتے ہیں، مگر اندر سے بالکل سُن ہو جاتے ہیں۔", "query": "phone screen", "backup": "city lights"},
+            {"text": "جب حق بات سن کر بھی اندر کوئی حرکت نہ ہو، تو سمجھ لیں دل کو علاج کی ضرورت ہے۔", "query": "hourglass sand", "backup": "clock time"},
+            {"text": "آخری زمانے میں اصل امتحان مال یا طاقت کا نہیں، اپنے دل کو زندہ رکھنے کا ہے۔", "query": "spark dark", "backup": "candle flame"},
+            {"text": "ہم مصروفیت کو عذر بنا لیتے ہیں، حالانکہ اصل کمی توجہ اور اخلاص کی ہوتی ہے۔", "query": "busy street", "backup": "crowd walking"},
+            {"text": "جو چیز ہمیں اللہ سے دور کرے، وہ چاہے کتنی ہی عام کیوں نہ ہو، نقصان دہ ہے۔", "query": "fog road", "backup": "misty trees"},
+            {"text": "آج کا سبق یہ ہے: دن میں کم از کم ایک بار اپنے دل سے پوچھیں کہ میں کس طرف جا رہا ہوں۔", "query": "open book", "backup": "notebook desk"},
+            {"text": "صرف زبان سے توبہ کافی نہیں، عمل میں چھوٹا سا بدلاؤ بھی لانا پڑتا ہے۔", "query": "water hands", "backup": "quiet river"},
+            {"text": "نماز کو آخری وقت پر ٹالنا چھوڑیں، کیونکہ وقت کسی کا انتظار نہیں کرتا۔", "query": "mosque dome", "backup": "morning light"},
+            {"text": "اپنے دل کی حفاظت کریں، کیونکہ آخری زمانے میں سب سے قیمتی چیز سلامت دل ہے۔", "query": "sunrise sky", "backup": "peaceful nature"},
         ],
     },
     {
-        "id": "urdu_story_02_zuban_aur_fitna",
-        "title": "آخری زمانہ میں ایک لفظ کا اثر | Islamic Short",
-        "scenes": [
-            {
-                "text": "آخری زمانے میں اکثر لوگ بڑے گناہوں سے نہیں، بے احتیاطی کی باتوں سے پھسلتے ہیں۔",
-                "query": "crowd walking",
-                "backup_query": "busy street",
-            },
-            {
-                "text": "عائشہ کو ایک گروپ میں کسی کے خلاف سنی سنائی بات ملی اور اس نے بنا سوچے آگے بھیج دی۔",
-                "query": "typing phone",
-                "backup_query": "mobile screen",
-            },
-            {
-                "text": "وہ بات آگے پھیلتی گئی اور ایک بے قصور انسان کی عزت اور رشتے متاثر ہوئے۔",
-                "query": "broken glass",
-                "backup_query": "shadow wall",
-            },
-            {
-                "text": "جب عائشہ کو حقیقت کا پتہ چلا تو اسے بہت ندامت ہوئی کہ اس کی جلد بازی سے کیا نقصان ہوا۔",
-                "query": "sad woman",
-                "backup_query": "evening window",
-            },
-            {
-                "text": "اس نے خود آگے بڑھ کر سچ واضح کیا اور جس کا دل دکھا تھا اس سے معافی مانگی۔",
-                "query": "people talking",
-                "backup_query": "calm conversation",
-            },
-            {
-                "text": "آخری زمانے میں زبان اور فارورڈ بٹن دونوں ایک بڑی آزمائش ہیں۔",
-                "query": "fire sparks",
-                "backup_query": "ember dark",
-            },
-            {
-                "text": "جو بات تحقیق اور ادب کے بغیر آگے بڑھائی جائے، وہ دل اور دلوں کے رشتے کمزور کرتی ہے۔",
-                "query": "fog forest",
-                "backup_query": "misty trees",
-            },
-            {
-                "text": "اس کی عملی ٹپ یہ ہے: کوئی بھی بات آگے بھیجنے سے پہلے خود سے دو سوال پوچھیں۔",
-                "query": "open book",
-                "backup_query": "notebook pen",
-            },
-            {
-                "text": "پہلا سوال: کیا یہ بات سچ ہے؟ اور دوسرا سوال: کیا اس سے کسی کا دل تو نہیں دکھے گا؟",
-                "query": "lake sunset",
-                "backup_query": "calm water",
-            },
-            {
-                "text": "اگر یقین نہ ہو یا دل دکھنے کا خدشہ ہو تو خاموشی اختیار کر لیں۔",
-                "query": "mountain clouds",
-                "backup_query": "high peaks",
-            },
-            {
-                "text": "زبان کی حفاظت انسان کو فتنوں سے بچاتی ہے اور دل کو نرم رکھتی ہے۔",
-                "query": "candle flame",
-                "backup_query": "warm lantern",
-            },
-            {
-                "text": "اپنی بات اور کردار کو آج ہی سنوار لیں۔",
-                "query": "golden sunset",
-                "backup_query": "sky clouds",
-            },
+        "id": "sabaq_02_be_adabi_aur_shor",
+        "title": "آخری زمانہ کا سبق: شور میں کھویا سکون | Islamic Short",
+        "lines": [
+            {"text": "آخری زمانے میں شور بہت بڑھ جائے گا، مگر سکون صرف انہی کو ملے گا جو رک کر سنیں گے۔", "query": "traffic night", "backup": "city crowd"},
+            {"text": "ہر بات پر رائے دینا اور ہر جھگڑے میں کود پڑنا انسان کا سکون اور وقار دونوں کھا جاتا ہے۔", "query": "typing phone", "backup": "mobile dark"},
+            {"text": "جب زبان بے لگام ہو جائے تو رشتے بھی ٹوٹتے ہیں اور دل کی نرمی بھی ختم ہوتی ہے۔", "query": "broken glass", "backup": "shadow wall"},
+            {"text": "علم کا فائدہ تب ہے جب وہ اخلاق اور عاجزی میں نظر آئے، تکبر میں نہیں۔", "query": "ancient library", "backup": "books table"},
+            {"text": "آخری زمانے میں دکھاوا اتنا بڑھ جائے گا کہ سچا عمل خاموشی سے چھپنے لگے گا۔", "query": "spotlight dark", "backup": "stage lights"},
+            {"text": "خاموشی کمزوری نہیں، بعض اوقات سب سے مضبوط اور دانشمندانہ فیصلہ ہوتی ہے۔", "query": "mountain peak", "backup": "calm lake"},
+            {"text": "آج کا سبق یہ ہے: غصے یا بحث کے وقت پہلے دس سیکنڈ رکیں، پھر بات کریں۔", "query": "clock ticking", "backup": "sand timer"},
+            {"text": "جس بات کا کوئی فائدہ نہ ہو، وہاں خاموش رہنا ہی سب سے بڑی بچت ہے۔", "query": "forest path", "backup": "green leaves"},
+            {"text": "اپنے گھر اور زبان میں نرمی لائیں، یہی چیز ماحول کو پر سکون بناتی ہے۔", "query": "warm lantern", "backup": "evening light"},
+            {"text": "یاد رکھیں، اصل کامیابی شور مچانے میں نہیں، رب کو راضی کرنے میں ہے۔", "query": "golden horizon", "backup": "sun rays"},
         ],
     },
 ]
@@ -194,37 +94,38 @@ def _has_urdu_script(text: str) -> bool:
     return bool(re.search(r"[\u0600-\u06FF]", text))
 
 
-def generate_story_with_gemini(api_key: str, used_ids: list[str]) -> dict | None:
+def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict | None:
     if not api_key:
         return None
 
     recent_list = ", ".join(used_ids[-15:]) if used_ids else "none"
     prompt = (
-        "You are an Islamic storytelling scriptwriter for 35-42 second vertical YouTube Shorts in natural, warm Urdu. "
-        "Write ONE engaging, emotional, and creative 'Aakhri Zamana' (End Times) story with a named character, a clear turning point, and a practical daily tip at the end. "
-        "CRITICAL LANGUAGE RULE: Write 'title' and every scene's 'text' strictly in proper URDU SCRIPT (اردو رسم الخط). Do NOT use Roman Urdu or English sentences in 'text'. "
-        "For each scene, provide 'query' (1-2 simple visual English words, e.g. 'sand hourglass', 'rain window', 'mosque dome') and 'backup_query' (1-2 alternative visual English words). "
-        f"Avoid these previous topic IDs/themes: {recent_list}. "
-        "Output ONLY a valid JSON object (no markdown, no extra text) with this exact structure:\n"
+        "You are an Islamic mentor and short-form video editor scriptwriter for 30-38 second vertical YouTube Shorts in Urdu. "
+        "Do NOT write a story or fictional character narrative. Write ONE direct, sharp, insightful 'Aakhri Zamana' (End Times) LESSON / REALIZATION in proper URDU SCRIPT (اردو رسم الخط), "
+        "as if a wise mentor is speaking directly and naturally to the viewer, followed by a practical tip. "
+        "CRITICAL RULES:\n"
+        "- Write 'title' and every line's 'text' strictly in URDU SCRIPT (no Roman Urdu, no English sentences).\n"
+        "- Provide 10 punchy lines (8 to 13 Urdu words each), total around 95-120 Urdu words.\n"
+        "- Line 1: Hard-hitting hook about Aakhri Zamana.\n"
+        "- Lines 2-7: Direct reality check & core lesson (why people drift, how it affects heart/life).\n"
+        "- Lines 8-9: Practical action/tip the viewer can apply today.\n"
+        "- Line 10: Strong closing takeaway.\n"
+        "- For each line, give 'query' (1-2 visual English words for stock video) and 'backup' (1-2 alternative English words).\n"
+        f"Avoid these previous IDs/themes: {recent_list}.\n"
+        "Output ONLY valid JSON:\n"
         "{\n"
-        '  "id": "unique_short_snake_case_id",\n'
-        '  "title": "دلچسپ اردو عنوان | Islamic Short",\n'
-        '  "scenes": [\n'
-        '    {"text": "صاف اور قدرتی اردو جملہ (10 سے 14 الفاظ)", "query": "2 visual words", "backup_query": "2 backup words"}\n'
+        '  "id": "unique_lesson_id",\n'
+        '  "title": "اردو عنوان | Islamic Short",\n'
+        '  "lines": [\n'
+        '    {"text": "اردو جملہ", "query": "2 words", "backup": "2 words"}\n'
         "  ]\n"
-        "}\n"
-        "Rules:\n"
-        "- Include 12 scenes total (~115-140 Urdu words total).\n"
-        "- Scene 1: Strong hook about Aakhri Zamana in Urdu.\n"
-        "- Scenes 2-7: A vivid, relatable story about a character facing a modern/end-times test and realizing the truth.\n"
-        "- Scenes 8-11: Clear, actionable practical tip step-by-step.\n"
-        "- Scene 12: Memorable closing reminder."
+        "}"
     )
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key)}"
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.9},
+        "generationConfig": {"temperature": 0.85},
     }
     req = urllib.request.Request(
         url,
@@ -233,7 +134,7 @@ def generate_story_with_gemini(api_key: str, used_ids: list[str]) -> dict | None
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=25) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
         parts = (
             payload.get("candidates", [{}])[0]
@@ -244,45 +145,42 @@ def generate_story_with_gemini(api_key: str, used_ids: list[str]) -> dict | None
         parsed = _extract_json_object(text_out)
         if not parsed:
             return None
-        scenes = parsed.get("scenes")
-        if not isinstance(scenes, list) or len(scenes) < 10:
+        lines = parsed.get("lines")
+        if not isinstance(lines, list) or len(lines) < 8:
             return None
-        valid_scenes = []
-        for s in scenes[:12]:
-            if isinstance(s, dict) and s.get("text") and s.get("query"):
-                scene_text = str(s["text"]).strip()
-                if not _has_urdu_script(scene_text):
+        valid_lines = []
+        for item in lines[:10]:
+            if isinstance(item, dict) and item.get("text") and item.get("query"):
+                txt = str(item["text"]).strip()
+                if not _has_urdu_script(txt):
                     return None
-                q = str(s["query"]).strip()
-                bq = str(s.get("backup_query") or "nature sky").strip()
-                valid_scenes.append({
-                    "text": scene_text,
-                    "query": q,
-                    "backup_query": bq,
+                valid_lines.append({
+                    "text": txt,
+                    "query": str(item["query"]).strip(),
+                    "backup": str(item.get("backup") or "nature sky").strip(),
                 })
-        if len(valid_scenes) < 10:
+        if len(valid_lines) < 8:
             return None
-        story_id = str(parsed.get("id") or f"urdu_story_{random.randint(10000, 99999)}")
+        lesson_id = str(parsed.get("id") or f"sabaq_{random.randint(10000, 99999)}")
         raw_title = str(parsed.get("title") or "").strip()
-        title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کا قصہ اور عملی ٹپ | Islamic Short"
-        return {"id": story_id, "title": title, "scenes": valid_scenes}
+        title = raw_title if _has_urdu_script(raw_title) else "آخری زمانہ کا سبق | Islamic Short"
+        return {"id": lesson_id, "title": title, "lines": valid_lines}
     except Exception as e:
-        print(f"Gemini generation failed, using fallback story: {e}")
+        print(f"Gemini lesson generation failed, using fallback: {e}")
         return None
 
 
-def pick_story(used_ids: list[str], gemini_key: str) -> dict:
-    story = generate_story_with_gemini(gemini_key, used_ids)
-    if not story:
-        unused = [s for s in FALLBACK_STORIES if s["id"] not in used_ids]
+def pick_lesson(used_ids: list[str], gemini_key: str) -> dict:
+    lesson = generate_lesson_with_gemini(gemini_key, used_ids)
+    if not lesson:
+        unused = [x for x in FALLBACK_LESSONS if x["id"] not in used_ids]
         if not unused:
             used_ids.clear()
-            unused = FALLBACK_STORIES
-        story = random.choice(unused)
-
-    used_ids.append(story["id"])
+            unused = FALLBACK_LESSONS
+        lesson = random.choice(unused)
+    used_ids.append(lesson["id"])
     save_history(used_ids)
-    return story
+    return lesson
 
 
 def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
@@ -293,43 +191,42 @@ def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
             return font_name, str(dest.resolve())
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         try:
-            with urllib.request.urlopen(req, timeout=25) as resp, open(dest, "wb") as out:
+            with urllib.request.urlopen(req, timeout=20) as resp, open(dest, "wb") as out:
                 out.write(resp.read())
             if dest.exists() and dest.stat().st_size > 20_000:
                 return font_name, str(dest.resolve())
         except Exception as e:
             print(f"Font download failed for {font_name}: {e}")
 
-    system_fallbacks = [
+    fallbacks = [
         ("Noto Naskh Arabic", "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf"),
         ("Noto Nastaliq Urdu", "/usr/share/fonts/truetype/noto/NotoNastaliqUrdu-Regular.ttf"),
-        ("Noto Sans Arabic", "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf"),
         ("DejaVu Sans", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
     ]
-    for name, path in system_fallbacks:
+    for name, path in fallbacks:
         if os.path.exists(path):
             return name, str(Path(path).resolve())
     return "DejaVu Sans", ""
 
 
-async def generate_full_urdu_voice(text: str, mp3_path: Path) -> None:
+async def generate_voice_line(text: str, mp3_path: Path) -> None:
     communicate = edge_tts.Communicate(
         text=text,
         voice="ur-PK-AsadNeural",
-        rate="+2%",
-        pitch="-3Hz",
+        rate="+6%",
+        pitch="-2Hz",
     )
     await communicate.save(str(mp3_path))
 
 
-def normalize_full_audio(raw_mp3: Path, clean_wav: Path) -> float:
+def process_voice_line(raw_mp3: Path, clean_wav: Path, pause_sec: float = 0.22) -> float:
     cmd = [
         "ffmpeg",
         "-y",
         "-i",
         str(raw_mp3),
         "-af",
-        "highpass=f=75,lowpass=f=12500,loudnorm=I=-15:TP=-1.5:LRA=10",
+        f"highpass=f=80,lowpass=f=12000,acompressor=threshold=-18dB:ratio=3:attack=10:release=120,loudnorm=I=-15:TP=-1.5:LRA=9,apad=pad_dur={pause_sec}",
         "-ar",
         "44100",
         "-ac",
@@ -354,21 +251,21 @@ def get_media_duration(file_path: Path) -> float:
     return float(subprocess.check_output(cmd, text=True).strip())
 
 
-def fetch_pixabay_clip_for_query(query: str, api_key: str, used_urls: set[str]) -> str | None:
+def fetch_pixabay_clip(query: str, api_key: str, used_urls: set[str]) -> str | None:
     if not api_key or not query:
         return None
     encoded_q = urllib.parse.quote(query)
     encoded_key = urllib.parse.quote(api_key)
-    url = f"https://pixabay.com/api/videos/?key={encoded_key}&q={encoded_q}&per_page=10&safesearch=true"
+    url = f"https://pixabay.com/api/videos/?key={encoded_key}&q={encoded_q}&per_page=8&safesearch=true"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             for hit in data.get("hits", []):
                 videos = hit.get("videos", {})
                 candidates = []
-                for size_key in ("medium", "large", "small", "tiny"):
-                    info = videos.get(size_key) or {}
+                for key in ("medium", "small", "large", "tiny"):
+                    info = videos.get(key) or {}
                     link = info.get("url")
                     if link:
                         h = info.get("height") or 0
@@ -387,26 +284,28 @@ def fetch_pixabay_clip_for_query(query: str, api_key: str, used_urls: set[str]) 
 def download_file(url: str, dest: Path) -> bool:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp, open(dest, "wb") as out:
+        with urllib.request.urlopen(req, timeout=20) as resp, open(dest, "wb") as out:
             out.write(resp.read())
-        return dest.exists() and dest.stat().st_size > 50_000
+        return dest.exists() and dest.stat().st_size > 40_000
     except Exception as e:
         print(f"Download failed for {url}: {e}")
         return False
 
 
-def build_fallback_clip(dest: Path, clip_dur: float, idx: int) -> None:
-    palette = ["0x0c1821", "0x1b263b", "0x14281d", "0x1f1d2e", "0x241914"]
-    color = palette[idx % len(palette)]
+def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
+    colors = ["0x0f172a", "0x1e293b", "0x111827", "0x172554", "0x1f2937"]
+    c = colors[idx % len(colors)]
     cmd = [
         "ffmpeg",
         "-y",
         "-f",
         "lavfi",
         "-i",
-        f"color=c={color}:s=1080x1920:d={clip_dur}",
+        f"color=c={c}:s=1080x1920:d={dur}",
         "-c:v",
         "libx264",
+        "-preset",
+        "ultrafast",
         "-pix_fmt",
         "yuv420p",
         str(dest),
@@ -414,28 +313,32 @@ def build_fallback_clip(dest: Path, clip_dur: float, idx: int) -> None:
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def normalize_clip(raw_path: Path, out_path: Path, clip_dur: float, idx: int) -> bool:
-    if idx % 3 == 0:
-        zoom_expr = "min(zoom+0.0009,1.13)"
-        x_expr = "iw/2-(iw/zoom/2)"
-        y_expr = "ih*0.42-(ih/zoom/2)"
-    elif idx % 3 == 1:
-        zoom_expr = "if(eq(on,1),1.12,max(zoom-0.0009,1.0))"
-        x_expr = "iw/2-(iw/zoom/2)"
-        y_expr = "ih/2-(ih/zoom/2)"
+def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
+    # Punchy editor motion: alternating scale/crop framing + dynamic push/pull + warm/moody grade
+    if idx % 4 == 0:
+        crop_w, crop_h = 900, 1600
+        x_expr = "(iw-ow)/2 + ((iw-ow)/4)*sin(t*0.8)"
+        y_expr = "(ih-oh)*0.45"
+    elif idx % 4 == 1:
+        crop_w, crop_h = 840, 1493
+        x_expr = "(iw-ow)/2"
+        y_expr = "(ih-oh)/2 + ((ih-oh)/5)*cos(t*0.7)"
+    elif idx % 4 == 2:
+        crop_w, crop_h = 940, 1671
+        x_expr = "(iw-ow)*0.35 + ((iw-ow)*0.2)*sin(t*0.9)"
+        y_expr = "(ih-oh)*0.4"
     else:
-        zoom_expr = "min(zoom+0.0007,1.10)"
-        x_expr = "iw*0.55-(iw/zoom/2)"
-        y_expr = "ih/2-(ih/zoom/2)"
+        crop_w, crop_h = 860, 1529
+        x_expr = "(iw-ow)*0.6 - ((iw-ow)*0.2)*sin(t*0.75)"
+        y_expr = "(ih-oh)*0.5"
 
-    frames = max(1, int(round(clip_dur * 30)))
     vf = (
         "scale=1280:2276:force_original_aspect_ratio=increase,"
-        "crop=1280:2276,"
-        f"zoompan=z='{zoom_expr}':x='{x_expr}':y='{y_expr}':d={frames}:s=1080x1920:fps=30,"
-        "eq=contrast=1.08:brightness=0.01:saturation=1.12,"
-        "vignette=PI/5,"
-        f"trim=duration={clip_dur},setpts=PTS-STARTPTS"
+        f"crop=w={crop_w}:h={crop_h}:x='{x_expr}':y='{y_expr}',"
+        "scale=1080:1920:flags=lanczos,"
+        "eq=contrast=1.10:brightness=0.01:saturation=1.14,"
+        "vignette=PI/4.5,"
+        f"trim=duration={dur},setpts=PTS-STARTPTS,fps=30"
     )
     cmd = [
         "ffmpeg",
@@ -448,93 +351,15 @@ def normalize_clip(raw_path: Path, out_path: Path, clip_dur: float, idx: int) ->
         "-c:v",
         "libx264",
         "-preset",
-        "veryfast",
+        "ultrafast",
         "-crf",
-        "21",
+        "22",
         "-pix_fmt",
         "yuv420p",
         str(out_path),
     ]
     res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return res.returncode == 0 and out_path.exists() and out_path.stat().st_size > 10_000
-
-
-def merge_clips_with_crossfade(clips: list[Path], durations: list[float], out_video: Path, fade_dur: float = 0.35) -> None:
-    if len(clips) == 1:
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", str(clips[0]), "-c:v", "copy", str(out_video)],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        return
-
-    inputs: list[str] = []
-    for c in clips:
-        inputs.extend(["-i", str(c)])
-
-    filter_parts: list[str] = []
-    prev_label = "[0:v]"
-    cumulative_offset = 0.0
-
-    for i in range(1, len(clips)):
-        eff_dur = max(1.2, durations[i - 1])
-        offset = max(0.1, round(cumulative_offset + eff_dur - fade_dur, 2))
-        cumulative_offset = offset
-        out_label = f"[v{i:02d}]" if i < len(clips) - 1 else "[vout]"
-        filter_parts.append(
-            f"{prev_label}[{i}:v]xfade=transition=fade:duration={fade_dur}:offset={offset}{out_label}"
-        )
-        prev_label = out_label
-
-    cmd = [
-        "ffmpeg",
-        "-y",
-        *inputs,
-        "-filter_complex",
-        ";".join(filter_parts),
-        "-map",
-        "[vout]",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-crf",
-        "21",
-        "-pix_fmt",
-        "yuv420p",
-        str(out_video),
-    ]
-    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if res.returncode != 0 or not out_video.exists():
-        concat_list = out_video.parent / "fallback_concat.txt"
-        with open(concat_list, "w", encoding="utf-8") as f:
-            for p in clips:
-                f.write(f"file '{p.resolve()}'\n")
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                str(concat_list),
-                "-c:v",
-                "libx264",
-                "-preset",
-                "veryfast",
-                "-crf",
-                "21",
-                "-pix_fmt",
-                "yuv420p",
-                str(out_video),
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
 
 
 def _format_ass_time(sec: float) -> str:
@@ -582,7 +407,7 @@ def burn_ass_captions(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Default,{font_name},62,&H00FFFFFF,&H0000FFFF,&H00000000,&H96000000,"
+        f"Style: Default,{font_name},62,&H00FFFFFF,&H0000FFFF,&H00000000,&HA0000000,"
         "-1,0,0,0,100,100,0,0,3,3,2,2,60,60,360,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -614,9 +439,9 @@ def burn_ass_captions(
         "-c:v",
         "libx264",
         "-preset",
-        "veryfast",
+        "ultrafast",
         "-crf",
-        "21",
+        "22",
         "-pix_fmt",
         "yuv420p",
         str(output_video),
@@ -640,56 +465,99 @@ def main() -> None:
     pixabay_key = os.getenv("PIXABAY_API_KEY", "").strip()
 
     font_name, font_file = ensure_urdu_font(work_dir / "fonts")
-    story = pick_story(used_ids, gemini_key)
-    scenes = story["scenes"]
+    lesson = pick_lesson(used_ids, gemini_key)
+    lines = lesson["lines"]
 
-    full_narration = " ".join(s["text"] for s in scenes)
-    raw_voice_mp3 = work_dir / "raw_voice.mp3"
-    clean_voice_wav = work_dir / "clean_voice.wav"
+    voice_wavs: list[Path] = []
+    line_durations: list[float] = []
 
-    asyncio.run(generate_full_urdu_voice(full_narration, raw_voice_mp3))
-    voice_dur = normalize_full_audio(raw_voice_mp3, clean_voice_wav)
+    for idx, item in enumerate(lines):
+        raw_mp3 = work_dir / f"line_{idx:02d}.mp3"
+        clean_wav = work_dir / f"line_{idx:02d}.wav"
+        asyncio.run(generate_voice_line(item["text"], raw_mp3))
+        dur = process_voice_line(raw_mp3, clean_wav, pause_sec=0.22)
+        dur = max(2.2, round(dur, 2))
+        voice_wavs.append(clean_wav)
+        line_durations.append(dur)
 
-    total_words = sum(max(1, len(s["text"].split())) for s in scenes)
-    target_duration = max(32.0, round(voice_dur + 0.4, 2))
+    audio_concat = work_dir / "audio_concat.txt"
+    with open(audio_concat, "w", encoding="utf-8") as f:
+        for w in voice_wavs:
+            f.write(f"file '{w.resolve()}'\n")
+
+    full_voice_wav = work_dir / "full_voice.wav"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(audio_concat),
+            "-c:a",
+            "pcm_s16le",
+            str(full_voice_wav),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     used_urls: set[str] = set()
-    normalized_clips: list[Path] = []
-    scene_durations: list[float] = []
+    edited_clips: list[Path] = []
     caption_segments: list[dict] = []
-    cursor_time = 0.0
+    cursor = 0.0
 
-    for idx, scene in enumerate(scenes):
-        words_ratio = max(1, len(scene["text"].split())) / total_words
-        scene_dur = max(2.3, round(target_duration * words_ratio, 2))
-        norm_file = work_dir / f"scene_{idx:02d}.mp4"
-
+    for idx, (item, clip_dur) in enumerate(zip(lines, line_durations)):
+        out_clip = work_dir / f"clip_{idx:02d}.mp4"
         ok = False
-        for q in (scene.get("query", ""), scene.get("backup_query", "")):
-            clip_url = fetch_pixabay_clip_for_query(q, pixabay_key, used_urls)
-            if clip_url:
-                raw_file = work_dir / f"raw_{idx:02d}.mp4"
-                if download_file(clip_url, raw_file):
-                    ok = normalize_clip(raw_file, norm_file, scene_dur, idx)
+        for q in (item.get("query", ""), item.get("backup", "")):
+            url = fetch_pixabay_clip(q, pixabay_key, used_urls)
+            if url:
+                raw_clip = work_dir / f"raw_{idx:02d}.mp4"
+                if download_file(url, raw_clip):
+                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
                     if ok:
                         break
-
         if not ok:
-            build_fallback_clip(norm_file, scene_dur, idx)
+            build_fallback_clip(out_clip, clip_dur, idx)
 
-        normalized_clips.append(norm_file)
-        scene_durations.append(scene_dur)
+        edited_clips.append(out_clip)
         caption_segments.append({
-            "text": scene["text"],
-            "start": cursor_time,
-            "end": round(cursor_time + scene_dur, 2),
+            "text": item["text"],
+            "start": cursor,
+            "end": round(cursor + clip_dur, 2),
         })
-        cursor_time += scene_dur
+        cursor = round(cursor + clip_dur, 2)
 
-    merged_video = work_dir / "merged_video.mp4"
-    merge_clips_with_crossfade(normalized_clips, scene_durations, merged_video, fade_dur=0.35)
+    clips_concat = work_dir / "clips_concat.txt"
+    with open(clips_concat, "w", encoding="utf-8") as f:
+        for c in edited_clips:
+            f.write(f"file '{c.resolve()}'\n")
 
-    captioned_video = work_dir / "captioned_video.mp4"
+    merged_video = work_dir / "merged.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(clips_concat),
+            "-c:v",
+            "copy",
+            str(merged_video),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    captioned_video = work_dir / "captioned.mp4"
     ass_file = work_dir / "captions.ass"
     burn_ass_captions(merged_video, captioned_video, caption_segments, ass_file, font_name, font_file)
 
@@ -700,7 +568,7 @@ def main() -> None:
             "-i",
             str(captioned_video),
             "-i",
-            str(clean_voice_wav),
+            str(full_voice_wav),
             "-map",
             "0:v:0",
             "-map",
@@ -720,18 +588,19 @@ def main() -> None:
     )
 
     final_dur = get_media_duration(OUTPUT_VIDEO)
+    full_text = " ".join(x["text"] for x in lines)
     meta = {
-        "title": story["title"],
+        "title": lesson["title"],
         "description": (
-            f"{full_narration}\n\n"
+            f"{full_text}\n\n"
             "#IslamicShorts #AkhriZamana #UrduReminder #IslamicReminder #Shorts"
         ),
         "video_path": str(OUTPUT_VIDEO),
         "duration_seconds": round(final_dur, 2),
-        "clips_count": len(normalized_clips),
+        "clips_count": len(edited_clips),
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) using font '{font_name}' with {len(normalized_clips)} clips & crossfades.")
+    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) with {len(edited_clips)} pro-cut clips & lesson narration.")
 
 
 if __name__ == "__main__":
