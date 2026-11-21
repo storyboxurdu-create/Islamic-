@@ -129,7 +129,6 @@ def _build_dynamic_tags(raw_tags: object, topic: str, title: str, sections: list
     if "sahaba" in c_low or "صحابی" in combined or "صحابہ" in combined:
         topic_specific += ["Sahaba Ke Waqiat", "Sahaba Stories Urdu", "صحابہ کے واقعات", "صحابہ کے سچے واقعات"]
 
-    # Extract short Urdu words from script to add relevant content keywords
     urdu_words = re.findall(r"[\u0600-\u06FF]{3,14}", " ".join(x.get("text", "") for x in sections[:2]))
     for uw in urdu_words[:6]:
         if uw not in topic_specific:
@@ -844,3 +843,126 @@ def main() -> None:
     history.setdefault("used_ids", []).append(lesson["id"])
     history.setdefault("recent_summaries", []).append(lesson["summary"])
     save_history(history)
+
+    sections = lesson["sections"]
+    print(f"Generated lesson '{lesson['id']}' with {len(sections)} sections.")
+
+    full_text = " ".join(x["text"].strip() for x in sections)
+    full_voice_wav = work_dir / "full_voice.wav"
+    total_voice_dur = max(12.0, round(build_continuous_voice(full_text, work_dir, full_voice_wav), 2))
+
+    moody_music_wav = work_dir / "moody_music.wav"
+    mixed_audio_wav = work_dir / "mixed_audio.wav"
+    has_music = prepare_moody_music_track(total_voice_dur, work_dir, moody_music_wav)
+    mix_voice_and_music(full_voice_wav, moody_music_wav, has_music, mixed_audio_wav)
+
+    sec_word_counts = [max(4, len(x["text"].split())) for x in sections]
+    total_words = sum(sec_word_counts) or len(sections)
+    sec_durations: list[float] = []
+    acc = 0.0
+    for idx, wc in enumerate(sec_word_counts):
+        if idx == len(sec_word_counts) - 1:
+            d = max(2.0, round(total_voice_dur - acc, 2))
+        else:
+            d = max(2.0, round((total_voice_dur * wc) / total_words, 2))
+            acc = round(acc + d, 2)
+        sec_durations.append(d)
+
+    used_urls: set[str] = set()
+    edited_clips: list[Path] = []
+
+    for idx, (item, clip_dur) in enumerate(zip(sections, sec_durations)):
+        out_clip = work_dir / f"clip_{idx:02d}.mp4"
+        ok = False
+        for q in (item.get("query", ""), item.get("backup", "")):
+            url = fetch_pixabay_clip(q, pixabay_key, used_urls)
+            if url:
+                raw_clip = work_dir / f"raw_{idx:02d}.mp4"
+                if download_file(url, raw_clip):
+                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
+                    if ok:
+                        break
+        if not ok:
+            build_fallback_clip(out_clip, clip_dur, idx)
+        edited_clips.append(out_clip)
+
+    generate_thumbnail(edited_clips[0], lesson["thumb_text"], work_dir, font_name, font_file)
+
+    clips_concat = work_dir / "clips_concat.txt"
+    with open(clips_concat, "w", encoding="utf-8") as f:
+        for c in edited_clips:
+            f.write(f"file '{c.resolve()}'\n")
+
+    merged_video = work_dir / "merged.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(clips_concat),
+            "-c:v",
+            "copy",
+            str(merged_video),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    caption_chunks = _build_moving_caption_chunks(sections, total_voice_dur)
+    captioned_video = work_dir / "captioned.mp4"
+    ass_file = work_dir / "captions.ass"
+    burn_ass_captions(merged_video, captioned_video, caption_chunks, ass_file, font_name, font_file)
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(captioned_video),
+            "-i",
+            str(mixed_audio_wav),
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-shortest",
+            str(OUTPUT_VIDEO),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    if not OUTPUT_VIDEO.exists() or OUTPUT_VIDEO.stat().st_size == 0:
+        raise RuntimeError("Failed to generate final_islamic_short.mp4.")
+
+    final_dur = get_media_duration(OUTPUT_VIDEO)
+    meta = {
+        "title": lesson["title"][:95],
+        "description": (
+            f"{full_text}\n\n"
+            "#IslamicShorts #AkhriZamana #UrduReminder #IslamicReminder #Shorts"
+        ),
+        "tags": lesson["tags"],
+        "thumbnail_path": str(OUTPUT_THUMBNAIL) if OUTPUT_THUMBNAIL.exists() else "",
+        "video_path": str(OUTPUT_VIDEO),
+        "duration_seconds": round(final_dur, 2),
+        "clips_count": len(edited_clips),
+    }
+    OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) and thumbnail successfully.")
+
+
+if __name__ == "__main__":
+    main()
