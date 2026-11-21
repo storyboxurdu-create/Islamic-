@@ -235,13 +235,14 @@ async def generate_continuous_voice(full_text: str, mp3_path: Path) -> None:
 
 
 def process_continuous_voice(raw_mp3: Path, clean_wav: Path) -> float:
+    # Clean voice conversion without heavy compressor/loudnorm that can boost air/hiss artifacts
     cmd = [
         "ffmpeg",
         "-y",
         "-i",
         str(raw_mp3),
         "-af",
-        "highpass=f=80,lowpass=f=12000,equalizer=f=160:width_type=o:width=1.4:g=3.0,acompressor=threshold=-16dB:ratio=2.5:attack=10:release=120,loudnorm=I=-15:TP=-1.5:LRA=9",
+        "highpass=f=70,lowpass=f=11000,volume=1.0",
         "-ar",
         "44100",
         "-ac",
@@ -252,7 +253,7 @@ def process_continuous_voice(raw_mp3: Path, clean_wav: Path) -> float:
     return get_media_duration(clean_wav)
 
 
-def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path) -> None:
+def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path) -> bool:
     dur = max(10.0, round(duration_sec + 1.0, 2))
     shuffled_sources = list(MOODY_MUSIC_SOURCES)
     random.shuffle(shuffled_sources)
@@ -277,7 +278,7 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
                     "-t",
                     f"{dur}",
                     "-af",
-                    f"highpass=f=90,lowpass=f=2400,volume=0.25,afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5",
+                    f"lowpass=f=2400,volume=0.22,afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5",
                     "-ar",
                     "44100",
                     "-ac",
@@ -287,37 +288,24 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
                 res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 if res.returncode == 0 and out_wav.exists() and out_wav.stat().st_size > 20_000:
                     print(f"Music source: downloaded track ({out_wav.stat().st_size} bytes)")
-                    return
+                    return True
         except Exception as e:
             print(f"Music download skipped ({src_url}): {e}")
 
-    expr = (
-        "0.08*sin(2*PI*146.83*t)*(0.5+0.5*sin(2*PI*0.25*t))"
-        "+0.06*sin(2*PI*220.00*t)*(0.5+0.5*sin(2*PI*0.18*t+1.2))"
-        "+0.04*sin(2*PI*261.63*t)*(0.5+0.5*sin(2*PI*0.14*t+2.4))"
-    )
-    fc = (
-        f"aevalsrc='{expr}':s=44100:d={dur},"
-        "highpass=f=95,lowpass=f=700,"
-        f"afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5"
-    )
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-filter_complex",
-        fc,
-        "-ar",
-        "44100",
-        "-ac",
-        "1",
-        str(out_wav),
-    ]
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    size_b = out_wav.stat().st_size if out_wav.exists() else 0
-    print(f"Music source: soft moody synth pad ({size_b} bytes)")
+    print("Music source: none (no synthetic tone used)")
+    return False
 
 
-def mix_voice_and_music(voice_wav: Path, music_wav: Path, mixed_wav: Path) -> None:
+def mix_voice_and_music(voice_wav: Path, music_wav: Path, has_music: bool, mixed_wav: Path) -> None:
+    if not has_music or not music_wav.exists():
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(voice_wav), "-c:a", "pcm_s16le", str(mixed_wav)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return
+
     cmd = [
         "ffmpeg",
         "-y",
@@ -326,7 +314,7 @@ def mix_voice_and_music(voice_wav: Path, music_wav: Path, mixed_wav: Path) -> No
         "-i",
         str(music_wav),
         "-filter_complex",
-        "[0:a]volume=1.05[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[aout]",
+        "[0:a]volume=1.0[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]",
         "-map",
         "[aout]",
         "-ar",
@@ -582,118 +570,4 @@ def main() -> None:
     full_text = " ".join(x["text"].strip() for x in lines)
     raw_mp3 = work_dir / "full_voice.mp3"
     full_voice_wav = work_dir / "full_voice.wav"
-    asyncio.run(generate_continuous_voice(full_text, raw_mp3))
-    total_voice_dur = process_continuous_voice(raw_mp3, full_voice_wav)
-    total_voice_dur = max(12.0, round(total_voice_dur, 2))
-
-    moody_music_wav = work_dir / "moody_music.wav"
-    mixed_audio_wav = work_dir / "mixed_audio.wav"
-    prepare_moody_music_track(total_voice_dur, work_dir, moody_music_wav)
-    mix_voice_and_music(full_voice_wav, moody_music_wav, mixed_audio_wav)
-
-    word_counts = [max(3, len(x["text"].split())) for x in lines]
-    total_words = sum(word_counts) or len(lines)
-    line_durations: list[float] = []
-    acc = 0.0
-    for idx, wc in enumerate(word_counts):
-        if idx == len(word_counts) - 1:
-            d = max(1.8, round(total_voice_dur - acc, 2))
-        else:
-            d = max(1.8, round((total_voice_dur * wc) / total_words, 2))
-            acc = round(acc + d, 2)
-        line_durations.append(d)
-
-    used_urls: set[str] = set()
-    edited_clips: list[Path] = []
-
-    for idx, (item, clip_dur) in enumerate(zip(lines, line_durations)):
-        out_clip = work_dir / f"clip_{idx:02d}.mp4"
-        ok = False
-        for q in (item.get("query", ""), item.get("backup", "")):
-            url = fetch_pixabay_clip(q, pixabay_key, used_urls)
-            if url:
-                raw_clip = work_dir / f"raw_{idx:02d}.mp4"
-                if download_file(url, raw_clip):
-                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
-                    if ok:
-                        break
-        if not ok:
-            build_fallback_clip(out_clip, clip_dur, idx)
-        edited_clips.append(out_clip)
-
-    clips_concat = work_dir / "clips_concat.txt"
-    with open(clips_concat, "w", encoding="utf-8") as f:
-        for c in edited_clips:
-            f.write(f"file '{c.resolve()}'\n")
-
-    merged_video = work_dir / "merged.mp4"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(clips_concat),
-            "-c:v",
-            "copy",
-            str(merged_video),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    caption_chunks = _build_moving_caption_chunks(lines, total_voice_dur)
-    captioned_video = work_dir / "captioned.mp4"
-    ass_file = work_dir / "captions.ass"
-    burn_ass_captions(merged_video, captioned_video, caption_chunks, ass_file, font_name, font_file)
-
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(captioned_video),
-            "-i",
-            str(mixed_audio_wav),
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-shortest",
-            str(OUTPUT_VIDEO),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    if not OUTPUT_VIDEO.exists() or OUTPUT_VIDEO.stat().st_size == 0:
-        raise RuntimeError("Failed to generate final_islamic_short.mp4.")
-
-    final_dur = get_media_duration(OUTPUT_VIDEO)
-    meta = {
-        "title": lesson["title"],
-        "description": (
-            f"{full_text}\n\n"
-            "#IslamicShorts #AkhriZamana #UrduReminder #IslamicReminder #Shorts"
-        ),
-        "video_path": str(OUTPUT_VIDEO),
-        "duration_seconds": round(final_dur, 2),
-        "clips_count": len(edited_clips),
-    }
-    OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({final_dur:.1f}s) successfully.")
-
-
-if __name__ == "__main__":
-    main()
+    asyncio.run(generate_continuous_
