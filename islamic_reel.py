@@ -101,17 +101,17 @@ def generate_lesson_with_gemini(api_key: str, used_ids: list[str]) -> dict:
 
     recent_list = ", ".join(used_ids[-20:]) if used_ids else "none"
     prompt = (
-        "You are an engaging Urdu mentor speaking naturally on a 32-38 second vertical YouTube Short about 'Aakhri Zamana' (End Times). "
-        "Do NOT write a story or fictional character narrative. Write ONE direct, natural, conversational 'Aakhri Zamana' realization/lesson in proper URDU SCRIPT (اردو رسم الخط), "
-        "sounding like a thoughtful person talking smoothly without robotic textbook pauses, followed by a practical daily tip. "
+        "You are an emotionally expressive, warm Urdu mentor speaking on a 32-38 second vertical YouTube Short about 'Aakhri Zamana' (End Times). "
+        "Do NOT write a story or fictional character narrative. Write ONE direct, heartfelt, natural 'Aakhri Zamana' realization/lesson in proper URDU SCRIPT (اردو رسم الخط), "
+        "with real emotional weight, thoughtful pauses using '،' and '...', and natural emphasis—never sounding like a flat robot reading a textbook, followed by a practical tip. "
         "CRITICAL RULES:\n"
         "- Write 'title' and every line's 'text' strictly in URDU SCRIPT (no Roman Urdu, no English sentences).\n"
-        "- Provide 8 natural, smooth lines (9 to 14 Urdu words each), total around 85-110 Urdu words.\n"
-        "- Avoid heavy mechanical punctuation inside a line so speech flows smoothly.\n"
-        "- Line 1: Direct hook about Aakhri Zamana.\n"
-        "- Lines 2-6: Clear reality check on heart, habits, and modern distractions.\n"
+        "- Provide 8 expressive lines (9 to 14 Urdu words each), total around 85-110 Urdu words.\n"
+        "- Use '،' for natural breath pauses and '...' where the speaker slows down for emotional impact.\n"
+        "- Line 1: Deep, attention-grabbing hook about Aakhri Zamana.\n"
+        "- Lines 2-6: Honest, touching reality check about heart, heedlessness, and daily life.\n"
         "- Line 7: Practical daily habit/tip.\n"
-        "- Line 8: Strong closing reminder.\n"
+        "- Line 8: Warm, memorable closing reminder.\n"
         "- For each line, give 'query' (1-2 visual English words for stock video) and 'backup' (1-2 alternative English words).\n"
         f"Avoid these previous IDs/themes: {recent_list}.\n"
         "Output ONLY valid JSON:\n"
@@ -224,18 +224,36 @@ def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
     return "DejaVu Sans", ""
 
 
-async def generate_continuous_voice(full_text: str, mp3_path: Path) -> None:
+def _expressive_prosody_for_line(idx: int, total: int, text: str) -> tuple[str, str, float]:
+    # Vary speed and pitch slightly per line so delivery feels emotional & human rather than flat
+    if idx == 0:
+        # Hook: slightly slower, deeper weight
+        return "+3%", "-5Hz", 0.24
+    if idx >= total - 2:
+        # Tip & closing takeaway: calm, deliberate, heartfelt
+        return "+2%", "-4Hz", 0.26
+    if "..." in text or "؟" in text or "!" in text:
+        # Reflective / emphatic line: slower & slightly deeper
+        return "+1%", "-5Hz", 0.22
+    if idx % 2 == 1:
+        # Natural conversational momentum
+        return "+9%", "-2Hz", 0.16
+    return "+6%", "-3Hz", 0.18
+
+
+async def generate_expressive_line_voice(text: str, rate_str: str, pitch_str: str, mp3_path: Path) -> None:
     communicate = edge_tts.Communicate(
-        text=full_text,
+        text=text,
         voice="ur-PK-AsadNeural",
-        rate="+10%",
-        pitch="-3Hz",
+        rate=rate_str,
+        pitch=pitch_str,
     )
     await communicate.save(str(mp3_path))
 
 
-def process_continuous_voice(raw_mp3: Path, clean_wav: Path) -> float:
-    cmd = [
+def process_line_voice_with_pause(raw_mp3: Path, pause_sec: float, out_wav: Path) -> float:
+    temp_wav = out_wav.with_suffix(".raw.wav")
+    cmd_clean = [
         "ffmpeg",
         "-y",
         "-i",
@@ -246,10 +264,35 @@ def process_continuous_voice(raw_mp3: Path, clean_wav: Path) -> float:
         "44100",
         "-ac",
         "1",
-        str(clean_wav),
+        str(temp_wav),
     ]
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return get_media_duration(clean_wav)
+    subprocess.run(cmd_clean, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Append short silence gap so every thought has room to breathe without harsh robotic stops
+    fc = (
+        f"[0:a]aformat=sample_fmts=s16:sample_rates=44100:channel_layouts=mono[v];"
+        f"anullsrc=r=44100:cl=mono,atrim=duration={max(0.08, pause_sec)}[s];"
+        "[v][s]concat=n=2:v=0:a=1[aout]"
+    )
+    cmd_pad = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(temp_wav),
+        "-filter_complex",
+        fc,
+        "-map",
+        "[aout]",
+        "-ar",
+        "44100",
+        "-ac",
+        "1",
+        str(out_wav),
+    ]
+    subprocess.run(cmd_pad, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if temp_wav.exists():
+        temp_wav.unlink()
+    return get_media_duration(out_wav)
 
 
 def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path) -> bool:
@@ -449,35 +492,32 @@ def _format_ass_time(sec: float) -> str:
     return f"{hours}:{mins:02d}:{secs:05.2f}"
 
 
-def _build_moving_caption_chunks(lines: list[dict], total_duration: float) -> list[dict]:
+def _build_moving_caption_chunks_from_timed_lines(timed_lines: list[dict]) -> list[dict]:
     chunks: list[dict] = []
-    weights: list[int] = []
-    raw_texts: list[str] = []
-
-    for item in lines:
+    for item in timed_lines:
+        start_t = float(item["start"])
+        end_t = float(item["end"])
+        line_dur = max(0.5, end_t - start_t)
         words = str(item["text"]).strip().split()
         if not words:
             continue
+        pieces: list[str] = []
+        weights: list[int] = []
         for i in range(0, len(words), 3):
             piece = " ".join(words[i : i + 3]).strip()
             if piece:
-                raw_texts.append(piece)
+                pieces.append(piece)
                 weights.append(max(1, len(words[i : i + 3])))
-
-    if not raw_texts:
-        return []
-
-    total_w = sum(weights) or len(raw_texts)
-    cursor = 0.0
-    for idx, (txt, w) in enumerate(zip(raw_texts, weights)):
-        if idx == len(raw_texts) - 1:
-            end_t = round(total_duration, 2)
-        else:
-            seg_dur = max(0.45, (total_duration * w) / total_w)
-            end_t = round(min(total_duration, cursor + seg_dur), 2)
-        if end_t > cursor:
-            chunks.append({"text": txt, "start": round(cursor, 2), "end": end_t})
-        cursor = end_t
+        total_w = sum(weights) or len(pieces)
+        cur = start_t
+        for idx, (piece, w) in enumerate(zip(pieces, weights)):
+            if idx == len(pieces) - 1:
+                nxt = end_t
+            else:
+                nxt = min(end_t, cur + (line_dur * w) / total_w)
+            if nxt > cur:
+                chunks.append({"text": piece, "start": round(cur, 2), "end": round(nxt, 2)})
+            cur = nxt
     return chunks
 
 
@@ -566,34 +606,63 @@ def main() -> None:
     lines = lesson["lines"]
     print(f"Generated lesson '{lesson['id']}' with {len(lines)} lines.")
 
-    full_text = " ".join(x["text"].strip() for x in lines)
-    raw_mp3 = work_dir / "full_voice.mp3"
-    full_voice_wav = work_dir / "full_voice.wav"
-    asyncio.run(generate_continuous_voice(full_text, raw_mp3))
-    total_voice_dur = process_continuous_voice(raw_mp3, full_voice_wav)
-    total_voice_dur = max(12.0, round(total_voice_dur, 2))
+    line_wavs: list[Path] = []
+    timed_lines: list[dict] = []
+    cursor = 0.0
 
+    for idx, item in enumerate(lines):
+        txt = item["text"].strip()
+        rate_str, pitch_str, pause_sec = _expressive_prosody_for_line(idx, len(lines), txt)
+        raw_mp3 = work_dir / f"line_{idx:02d}.mp3"
+        clean_wav = work_dir / f"line_{idx:02d}.wav"
+        asyncio.run(generate_expressive_line_voice(txt, rate_str, pitch_str, raw_mp3))
+        dur = process_line_voice_with_pause(raw_mp3, pause_sec, clean_wav)
+        dur = max(1.5, round(dur, 2))
+        line_wavs.append(clean_wav)
+        timed_lines.append({
+            "text": txt,
+            "start": round(cursor, 2),
+            "end": round(cursor + dur, 2),
+            "duration": dur,
+        })
+        cursor = round(cursor + dur, 2)
+
+    audio_concat = work_dir / "audio_concat.txt"
+    with open(audio_concat, "w", encoding="utf-8") as f:
+        for w in line_wavs:
+            f.write(f"file '{w.resolve()}'\n")
+
+    full_voice_wav = work_dir / "full_voice.wav"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(audio_concat),
+            "-c:a",
+            "pcm_s16le",
+            str(full_voice_wav),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    total_voice_dur = max(12.0, round(get_media_duration(full_voice_wav), 2))
     moody_music_wav = work_dir / "moody_music.wav"
     mixed_audio_wav = work_dir / "mixed_audio.wav"
     has_music = prepare_moody_music_track(total_voice_dur, work_dir, moody_music_wav)
     mix_voice_and_music(full_voice_wav, moody_music_wav, has_music, mixed_audio_wav)
 
-    word_counts = [max(3, len(x["text"].split())) for x in lines]
-    total_words = sum(word_counts) or len(lines)
-    line_durations: list[float] = []
-    acc = 0.0
-    for idx, wc in enumerate(word_counts):
-        if idx == len(word_counts) - 1:
-            d = max(1.8, round(total_voice_dur - acc, 2))
-        else:
-            d = max(1.8, round((total_voice_dur * wc) / total_words, 2))
-            acc = round(acc + d, 2)
-        line_durations.append(d)
-
     used_urls: set[str] = set()
     edited_clips: list[Path] = []
 
-    for idx, (item, clip_dur) in enumerate(zip(lines, line_durations)):
+    for idx, (item, tline) in enumerate(zip(lines, timed_lines)):
+        clip_dur = max(1.5, float(tline["duration"]))
         out_clip = work_dir / f"clip_{idx:02d}.mp4"
         ok = False
         for q in (item.get("query", ""), item.get("backup", "")):
@@ -633,7 +702,7 @@ def main() -> None:
         stderr=subprocess.DEVNULL,
     )
 
-    caption_chunks = _build_moving_caption_chunks(lines, total_voice_dur)
+    caption_chunks = _build_moving_caption_chunks_from_timed_lines(timed_lines)
     captioned_video = work_dir / "captioned.mp4"
     ass_file = work_dir / "captions.ass"
     burn_ass_captions(merged_video, captioned_video, caption_chunks, ass_file, font_name, font_file)
@@ -668,6 +737,7 @@ def main() -> None:
         raise RuntimeError("Failed to generate final_islamic_short.mp4.")
 
     final_dur = get_media_duration(OUTPUT_VIDEO)
+    full_text = " ".join(x["text"].strip() for x in lines)
     meta = {
         "title": lesson["title"],
         "description": (
