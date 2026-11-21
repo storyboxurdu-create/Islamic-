@@ -2,7 +2,8 @@ name: Daily Islamic Shorts
 
 on:
   schedule:
-    - cron: '0 7 * * *'
+    - cron: "0 5 * * *"   # 10:00 AM PKT (UTC+5)
+    - cron: "0 13 * * *"  # 6:00 PM PKT (UTC+5)
   workflow_dispatch:
 
 permissions:
@@ -18,15 +19,18 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Install ffmpeg and Python dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install --upgrade pip
+          pip install edge-tts google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
-      - name: Install Python packages
-        run: pip install pillow edge-tts gtts google-api-python-client google-auth
-
-      - name: Generate Islamic Short
+      - name: Generate 30s+ video with 12 clips and Urdu voice
+        env:
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python islamic_reel.py
 
       - name: Upload to YouTube
@@ -36,10 +40,10 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: python upload_islamic_youtube.py
 
-      - name: Commit updated history
+      - name: Commit updated islamic_history.json
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add islamic_history.json
-          git commit -m "Update islamic_history.json [skip ci]" || true
+          git diff --staged --quiet || git commit -m "Update islamic_history.json [skip ci]"
           git push
