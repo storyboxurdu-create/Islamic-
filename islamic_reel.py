@@ -26,7 +26,6 @@ FONT_SOURCES = [
     ),
 ]
 
-# Public domain / CC0 calm atmospheric & moody instrumental tracks (auto-downloaded at runtime)
 MOODY_MUSIC_SOURCES = [
     "https://archive.org/download/relaxing-ambient-piano-music/Relaxing%20Ambient%20Piano%20Music.mp3",
     "https://archive.org/download/DarkAmbientMusic/Dark%20Ambient%201.mp3",
@@ -278,7 +277,7 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
                     "-t",
                     f"{dur}",
                     "-af",
-                    f"lowpass=f=1800,volume=0.22,afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5",
+                    f"lowpass=f=2200,volume=0.26,afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5",
                     "-ar",
                     "44100",
                     "-ac",
@@ -292,10 +291,15 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
         except Exception as e:
             print(f"Moody music download failed ({src_url}): {e}")
 
-    # Natural dark room/rain texture fallback (never pure sine wave)
+    # Soft changing moody musical notes (D-minor / A-minor ambient progression with gentle decay per 2s beat)
+    print("Generated moody musical chord progression fallback.")
+    expr = (
+        "0.14*sin(2*PI*(if(lt(mod(t,8),2),146.83,if(lt(mod(t,8),4),174.61,if(lt(mod(t,8),6),130.81,110.0))))*t)*exp(-1.4*mod(t,2))"
+        "+0.09*sin(2*PI*(if(lt(mod(t,8),2),220.0,if(lt(mod(t,8),4),261.63,if(lt(mod(t,8),6),196.0,164.81))))*t)*exp(-1.1*mod(t,2))"
+    )
     fc = (
-        f"anoisesrc=color=brown:sample_rate=44100:duration={dur}:amplitude=0.18,"
-        "lowpass=f=520,highpass=f=90,"
+        f"aevalsrc='{expr}':s=44100:d={dur},"
+        "lowpass=f=900,highpass=f=85,"
         f"afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, dur - 1.5)}:d=1.5"
     )
     cmd = [
@@ -321,7 +325,7 @@ def mix_voice_and_music(voice_wav: Path, music_wav: Path, mixed_wav: Path) -> No
         "-i",
         str(music_wav),
         "-filter_complex",
-        "[0:a]volume=1.05[v];[1:a]volume=0.85[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2:weights='1.0 0.85'[aout]",
+        "[0:a]volume=1.0[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[aout]",
         "-map",
         "[aout]",
         "-ar",
