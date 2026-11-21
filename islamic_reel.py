@@ -73,10 +73,8 @@ def _has_urdu_script(text: str) -> bool:
 
 
 def _normalize_urdu_pronunciation(text: str) -> str:
-    # Remove non-Urdu characters and standardize Urdu punctuation so TTS speaks with natural Urdu rhythm
     no_latin = re.sub(r"[A-Za-z0-9]+", " ", text)
     no_symbols = re.sub(r"[“”\"'`~@#$%^&*_+=<>|/\\\[\]()]+", " ", no_latin)
-    # Normalize Arabic/Urdu 'ی' vs 'ے' endings where appropriate and clean commas/full-stops
     cleaned = re.sub(r"\s*،\s*", "، ", no_symbols)
     cleaned = re.sub(r"\s*[.۔]+\s*", "۔ ", cleaned)
     cleaned = re.sub(r"\s*[؟?]+\s*", "؟ ", cleaned)
@@ -681,11 +679,4 @@ def main() -> None:
             if url:
                 raw_clip = work_dir / f"raw_{idx:02d}.mp4"
                 if download_file(url, raw_clip):
-                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
-                    if ok:
-                        break
-        if not ok:
-            build_fallback_clip(out_clip, clip_dur, idx)
-        edited_clips.append(out_clip)
-
-    clips_concat = work_dir
+                    ok = edit_pro_clip(raw_clip
