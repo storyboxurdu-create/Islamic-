@@ -41,6 +41,14 @@ DEFAULT_SCENE_QUERIES = [
     "clear sky clouds",
 ]
 
+# ASS BGR hex colors (&H00BBGGRR&) for lively, readable highlights
+CAPTION_ACCENTS = [
+    "&H0000FFFF&",  # Golden Yellow
+    "&H007CFF00&",  # Soft Mint/Lime
+    "&H0055CCFF&",  # Warm Amber/Orange
+    "&H00FFDD55&",  # Sky/Cyan glow
+]
+
 
 def get_dur(path: Path) -> float:
     out = subprocess.check_output(
@@ -109,7 +117,7 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
         f"episode from the life of a Prophet ({topic}).\n"
         "Strict instructions:\n"
         "- Write ONLY in natural spoken Urdu script (اردو رسم الخط), with zero English or Roman words in story_text or title.\n"
-        "- Make it a full, continuous ~3.3-minute narration: around 460 to 540 Urdu words, with a complete beginning, rising tension, turning point, resolution, and final moral ending.\n"
+        "- Make it a full, continuous ~3.3-minute narration: around 470 to 550 Urdu words, with a complete beginning, rising tension, turning point, resolution, and final moral ending.\n"
         "- Do not use bullet points or markdown inside story_text; write smooth flowing Urdu prose ready for voiceover.\n"
         "- Also provide 12 short English horizontal stock video search queries (2-3 words each) in queries matching the scenes of the story.\n"
         "Return ONLY valid JSON in this exact structure:\n"
@@ -183,9 +191,114 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
     return title, story_text, tags, queries
 
 
-async def make_tts(text: str, mp3_path: Path) -> None:
+async def make_tts_and_boundaries(text: str, mp3_path: Path) -> list[dict]:
     voice = os.getenv("EDGE_TTS_VOICE", "").strip() or "ur-PK-AsadNeural"
-    await edge_tts.Communicate(text=text, voice=voice, rate="-4%").save(str(mp3_path))
+    communicate = edge_tts.Communicate(text=text, voice=voice, rate="-4%")
+    word_events: list[tuple[float, float, str]] = []
+
+    with open(mp3_path, "wb") as out:
+        async for chunk in communicate.stream():
+            ctype = chunk.get("type")
+            if ctype == "audio":
+                out.write(chunk["data"])
+            elif ctype in ("WordBoundary", "SentenceBoundary"):
+                offset_s = float(chunk.get("offset", 0)) / 10_000_000.0
+                dur_s = max(0.08, float(chunk.get("duration", 1_500_000)) / 10_000_000.0)
+                piece = str(chunk.get("text") or "").strip()
+                if piece:
+                    word_events.append((offset_s, offset_s + dur_s, piece))
+
+    phrases: list[dict] = []
+    if word_events:
+        group_size = 5
+        for i in range(0, len(word_events), group_size):
+            grp = word_events[i : i + group_size]
+            st = round(grp[0][0], 2)
+            en = round(max(grp[-1][1], st + 0.6), 2)
+            txt = " ".join(w[2] for w in grp).strip()
+            if txt and en > st:
+                phrases.append({"start": st, "end": en, "text": txt})
+    return phrases
+
+
+def build_fallback_phrases(story_text: str, total_dur: float) -> list[dict]:
+    words = [w for w in re.split(r"\s+", story_text.strip()) if w]
+    if not words:
+        return [{"start": 0.0, "end": total_dur, "text": "مکمل واقعہ"}]
+    chunks = [" ".join(words[i : i + 5]) for i in range(0, len(words), 5)]
+    step = total_dur / len(chunks)
+    out: list[dict] = []
+    for idx, ch in enumerate(chunks):
+        st = round(idx * step, 2)
+        en = round(total_dur if idx == len(chunks) - 1 else (idx + 1) * step, 2)
+        if en > st:
+            out.append({"start": st, "end": en, "text": ch})
+    return out
+
+
+def format_ass_ts(sec: float) -> str:
+    sec = max(0.0, sec)
+    h = int(sec // 3600)
+    m = int((sec % 3600) // 60)
+    s = sec % 60
+    return f"{h}:{m:02d}:{s:05.2f}"
+
+
+def write_ass_captions_and_popups(
+    ass_path: Path,
+    phrases: list[dict],
+    total_dur: float,
+) -> None:
+    # Font family available on ubuntu-latest with fonts-noto-core
+    font_family = "Noto Sans"
+    header = (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1920\n"
+        "PlayResY: 1080\n"
+        "ScaledBorderAndShadow: yes\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        f"Style: Caption,{font_family},54,&H00FFFFFF,&H0000FFFF,&H00000000,&H96000000,"
+        "-1,0,0,0,102,102,1,0,3,4,2,2,90,90,78,1\n"
+        f"Style: SubscribePop,{font_family},38,&H00FFFFFF,&H00FFFFFF,&H00111111,&HE61818D8,"
+        "-1,0,0,0,100,100,0,0,3,3,2,9,60,60,70,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
+
+    lines: list[str] = []
+    for idx, p in enumerate(phrases):
+        st = format_ass_ts(p["start"])
+        en = format_ass_ts(p["end"])
+        accent = CAPTION_ACCENTS[idx % len(CAPTION_ACCENTS)]
+        clean_txt = re.sub(r"[{}]", "", p["text"]).strip()
+        if not clean_txt:
+            continue
+        # Animated pop-in + colorful highlight + smooth fade
+        styled = (
+            f"{{\\fad(120,120)\\fscx88\\fscy88\\t(0,140,\\fscx104\\fscy104)"
+            f"\\t(140,240,\\fscx100\\fscy100)\\1c{accent}}}{clean_txt}"
+        )
+        lines.append(f"Dialogue: 0,{st},{en},Caption,,0,0,0,,{styled}")
+
+    # Subscribe + Bell pop-up intervals (e.g., around 45s, 110s, 165s if within story duration)
+    popup_windows = [(42.0, 48.5), (108.0, 114.5), (162.0, 168.5)]
+    for p_start, p_end in popup_windows:
+        if p_start + 1.0 < total_dur:
+            actual_end = min(p_end, max(p_start + 1.0, total_dur - 0.5))
+            st_s = format_ass_ts(p_start)
+            en_s = format_ass_ts(actual_end)
+            bell_pulse = (
+                "{\\fad(180,180)\\move(2150,115,1690,115,0,350)"
+                "\\t(450,650,\\frz-12)\\t(650,850,\\frz12)\\t(850,1050,\\frz0)}"
+                "🔔  Subscribe & Bell Press Karein"
+            )
+            lines.append(f"Dialogue: 1,{st_s},{en_s},SubscribePop,,0,0,0,,{bell_pulse}")
+
+    ass_path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
 
 
 def make_color_clip(dest: Path, dur: float, idx: int) -> None:
@@ -216,6 +329,20 @@ def make_color_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_urls: set[str]) -> Path:
+    # Gentle slow pan/zoom motion on 1920x1080 landscape
+    if idx % 2 == 0:
+        vf = (
+            "scale=2048:1152:force_original_aspect_ratio=increase,"
+            "crop=w=1920:h=1080:x='(iw-ow)/2+((iw-ow)*0.45)*sin(t*0.4)':y='(ih-oh)/2',"
+            "eq=contrast=1.08:saturation=1.12,fps=30,format=yuv420p"
+        )
+    else:
+        vf = (
+            "scale=2048:1152:force_original_aspect_ratio=increase,"
+            "crop=w=1920:h=1080:x='(iw-ow)/2':y='(ih-oh)/2+((ih-oh)*0.45)*cos(t*0.4)',"
+            "eq=contrast=1.08:saturation=1.12,fps=30,format=yuv420p"
+        )
+
     if api_key:
         url = (
             f"https://pixabay.com/api/videos/?key={urllib.parse.quote(api_key)}"
@@ -247,7 +374,7 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
                                     "-t",
                                     f"{dur:.2f}",
                                     "-vf",
-                                    "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30",
+                                    vf,
                                     "-an",
                                     "-c:v",
                                     "libx264",
@@ -269,6 +396,57 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
     return dest
 
 
+def prepare_soft_bg_audio(voice_wav: Path, dur: float, work: Path) -> Path:
+    bg_wav = work / "soft_bg.wav"
+    mixed_wav = work / "final_mix.wav"
+    # Soft ambient synth pad (low volume so voice stays 100% clear)
+    fade_out_at = max(1.0, dur - 2.5)
+    bg_res = subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"sine=frequency=110:duration={dur:.2f}",
+            "-af",
+            f"lowpass=f=260,volume=0.045,afade=t=in:st=0:d=2.0,afade=t=out:st={fade_out_at:.2f}:d=2.5",
+            "-ar",
+            "44100",
+            "-ac",
+            "1",
+            str(bg_wav),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if bg_res.returncode == 0 and bg_wav.exists() and bg_wav.stat().st_size > 10_000:
+        mix_res = subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(voice_wav),
+                "-i",
+                str(bg_wav),
+                "-filter_complex",
+                "[0:a]volume=1.08[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:normalize=0[aout]",
+                "-map",
+                "[aout]",
+                "-ar",
+                "44100",
+                "-ac",
+                "1",
+                str(mixed_wav),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if mix_res.returncode == 0 and mixed_wav.exists() and mixed_wav.stat().st_size > 10_000:
+            return mixed_wav
+    return voice_wav
+
+
 def main() -> None:
     work = Path("build_long_assets")
     work.mkdir(exist_ok=True)
@@ -280,7 +458,8 @@ def main() -> None:
 
     mp3 = work / "voice.mp3"
     wav = work / "voice.wav"
-    asyncio.run(make_tts(story_text, mp3))
+    phrases = asyncio.run(make_tts_and_boundaries(story_text, mp3))
+
     subprocess.run(
         ["ffmpeg", "-y", "-i", str(mp3), "-ar", "44100", "-ac", "1", str(wav)],
         check=True,
@@ -292,10 +471,13 @@ def main() -> None:
     if actual_voice_dur < MIN_STORY_SEC:
         raise RuntimeError(
             f"Generated story voice is only {actual_voice_dur:.1f}s (< {MIN_STORY_SEC:.0f}s). "
-            "Increase story length so narration itself reaches 3+ minutes without padding."
+            "Story length needs to be longer so narration itself is 3+ minutes."
         )
 
-    print(f"Exact story narration duration: {actual_voice_dur:.1f}s")
+    if not phrases:
+        phrases = build_fallback_phrases(story_text, actual_voice_dur)
+
+    print(f"Exact story narration duration: {actual_voice_dur:.1f}s | Caption lines: {len(phrases)}")
 
     each_dur = round(actual_voice_dur / TARGET_CLIPS, 2)
     used_urls: set[str] = set()
@@ -317,14 +499,44 @@ def main() -> None:
         stderr=subprocess.DEVNULL,
     )
 
-    subprocess.run(
+    ass_file = work / "captions_and_popups.ass"
+    write_ass_captions_and_popups(ass_file, phrases, actual_voice_dur)
+
+    styled_video = work / "styled_video.mp4"
+    sub_res = subprocess.run(
         [
             "ffmpeg",
             "-y",
             "-i",
             str(merged),
+            "-vf",
+            f"ass={ass_file.name}",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "22",
+            "-pix_fmt",
+            "yuv420p",
+            str(styled_video),
+        ],
+        cwd=str(work),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    video_source = styled_video if (sub_res.returncode == 0 and styled_video.exists() and styled_video.stat().st_size > 20_000) else merged
+
+    audio_source = prepare_soft_bg_audio(wav, actual_voice_dur, work)
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
             "-i",
-            str(wav),
+            str(video_source),
+            "-i",
+            str(audio_source),
             "-map",
             "0:v:0",
             "-map",
@@ -359,7 +571,7 @@ def main() -> None:
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     HISTORY_FILE.write_text(json.dumps({"last_title": title}, ensure_ascii=False), encoding="utf-8")
-    print(f"Generated 1920x1080 {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) matching story end.")
+    print(f"Generated 1920x1080 {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with captions & pop-ups.")
 
 
 if __name__ == "__main__":
