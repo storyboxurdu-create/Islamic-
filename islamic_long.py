@@ -14,7 +14,7 @@ OUTPUT_META = Path("long_meta.json")
 OUTPUT_THUMBNAIL = Path("long_thumbnail.jpg")
 HISTORY_FILE = Path("islamic_long_history.json")
 
-MIN_DUR_SEC = 188.0  # ~3m 08s
+MIN_STORY_SEC = 185.0  # ~3m 05s
 TARGET_CLIPS = 32
 
 PROPHET_TOPICS = [
@@ -27,18 +27,18 @@ PROPHET_TOPICS = [
 ]
 
 DEFAULT_SCENE_QUERIES = [
-    "ancient desert dunes",
-    "ancient stone city",
-    "dark stormy clouds",
-    "candle light dark",
-    "sunrise over horizon",
-    "quiet night sky",
+    "ancient desert dunes wide",
+    "ancient stone city landscape",
+    "dark stormy clouds sky",
+    "candle light dark room",
+    "sunrise over mountain horizon",
+    "quiet night stars sky",
     "flowing river sunlight",
     "mountain rock cliff",
     "calm ocean waves",
-    "open book page",
+    "open book pages",
     "golden wheat field",
-    "clear blue sky",
+    "clear sky clouds",
 ]
 
 
@@ -109,15 +109,15 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
         f"episode from the life of a Prophet ({topic}).\n"
         "Strict instructions:\n"
         "- Write ONLY in natural spoken Urdu script (اردو رسم الخط), with zero English or Roman words in story_text or title.\n"
-        "- Make it a full, continuous ~3.2-minute narration: around 440 to 520 Urdu words, divided into 4 clear parts/chapters with a complete beginning, tension, turning point, resolution, and moral lesson.\n"
+        "- Make it a full, continuous ~3.3-minute narration: around 460 to 540 Urdu words, with a complete beginning, rising tension, turning point, resolution, and final moral ending.\n"
         "- Do not use bullet points or markdown inside story_text; write smooth flowing Urdu prose ready for voiceover.\n"
-        "- Also provide 12 short English stock video search queries (2-3 words each) in queries matching the scenes of the story.\n"
+        "- Also provide 12 short English horizontal stock video search queries (2-3 words each) in queries matching the scenes of the story.\n"
         "Return ONLY valid JSON in this exact structure:\n"
         "{\n"
         '  "title": "دلچسپ اردو عنوان",\n'
         '  "story_text": "مکمل طویل اردو کہانی یہاں",\n'
         '  "tags": ["نبیوں کے واقعات", "Islamic Story Urdu", "Urdu Waqiat", "Storybox"],\n'
-        '  "queries": ["ancient desert dunes", "sunrise over horizon"]\n'
+        '  "queries": ["ancient desert dunes wide", "sunrise over mountain horizon"]\n'
         "}"
     )
 
@@ -176,8 +176,8 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
     if len(queries) < 6:
         queries = DEFAULT_SCENE_QUERIES
 
-    if len(story_text.split()) < 120:
-        raise RuntimeError("Generated story is too short.")
+    if len(story_text.split()) < 150:
+        raise RuntimeError("Generated story is too short for 3+ minute long video.")
 
     print(f"Auto-generated story '{title}' ({len(story_text.split())} words) on topic: {topic}")
     return title, story_text, tags, queries
@@ -185,7 +185,7 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
 
 async def make_tts(text: str, mp3_path: Path) -> None:
     voice = os.getenv("EDGE_TTS_VOICE", "").strip() or "ur-PK-AsadNeural"
-    await edge_tts.Communicate(text=text, voice=voice, rate="-5%").save(str(mp3_path))
+    await edge_tts.Communicate(text=text, voice=voice, rate="-4%").save(str(mp3_path))
 
 
 def make_color_clip(dest: Path, dur: float, idx: int) -> None:
@@ -198,7 +198,7 @@ def make_color_clip(dest: Path, dur: float, idx: int) -> None:
             "-f",
             "lavfi",
             "-i",
-            f"color=c={color}:s=1080x1920:d={dur:.2f}",
+            f"color=c={color}:s=1920x1080:d={dur:.2f}",
             "-vf",
             "fps=30,format=yuv420p",
             "-c:v",
@@ -227,7 +227,7 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
                 data = json.loads(resp.read().decode("utf-8"))
             for hit in data.get("hits", []):
                 vids = hit.get("videos", {})
-                for k in ("medium", "small", "large", "tiny"):
+                for k in ("medium", "large", "small", "tiny"):
                     link = (vids.get(k) or {}).get("url")
                     if link and link not in used_urls:
                         used_urls.add(link)
@@ -247,7 +247,7 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
                                     "-t",
                                     f"{dur:.2f}",
                                     "-vf",
-                                    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30",
+                                    "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30",
                                     "-an",
                                     "-c:v",
                                     "libx264",
@@ -288,22 +288,16 @@ def main() -> None:
         stderr=subprocess.DEVNULL,
     )
 
-    voice_dur = get_dur(wav)
-    if voice_dur < MIN_DUR_SEC:
-        pad_sec = round(MIN_DUR_SEC - voice_dur + 1.0, 2)
-        padded = work / "voice_padded.wav"
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", str(wav), "-af", f"apad=pad_dur={pad_sec}", "-ar", "44100", "-ac", "1", str(padded)],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+    actual_voice_dur = get_dur(wav)
+    if actual_voice_dur < MIN_STORY_SEC:
+        raise RuntimeError(
+            f"Generated story voice is only {actual_voice_dur:.1f}s (< {MIN_STORY_SEC:.0f}s). "
+            "Increase story length so narration itself reaches 3+ minutes without padding."
         )
-        padded.replace(wav)
-        voice_dur = get_dur(wav)
 
-    print(f"Voice duration: {voice_dur:.1f}s")
+    print(f"Exact story narration duration: {actual_voice_dur:.1f}s")
 
-    each_dur = max(5.5, round(voice_dur / TARGET_CLIPS, 2))
+    each_dur = round(actual_voice_dur / TARGET_CLIPS, 2)
     used_urls: set[str] = set()
     clips: list[Path] = []
 
@@ -341,8 +335,7 @@ def main() -> None:
             "aac",
             "-b:a",
             "192k",
-            "-t",
-            f"{voice_dur:.2f}",
+            "-shortest",
             str(OUTPUT_VIDEO),
         ],
         check=True,
@@ -366,7 +359,7 @@ def main() -> None:
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     HISTORY_FILE.write_text(json.dumps({"last_title": title}, ensure_ascii=False), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with {len(clips)} clips.")
+    print(f"Generated 1920x1080 {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) matching story end.")
 
 
 if __name__ == "__main__":
