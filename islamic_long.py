@@ -532,4 +532,502 @@ def ensure_urdu_font(fonts_dir: Path) -> tuple[str, str]:
 
 
 def _try_elevenlabs_tts(full_text: str, mp3_path: Path) -> bool:
-    api_key = os.getenv("ELEVENLABS_API_
+    api_key = os.getenv("ELEVENLABS_API_KEY", "").strip()
+    if not api_key:
+        return False
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "").strip() or "pNInz6obpgDQGcFmaJgB"
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{urllib.parse.quote(voice_id)}"
+    payload = {
+        "text": full_text,
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {
+            "stability": 0.48,
+            "similarity_boost": 0.80,
+            "style": 0.25,
+            "use_speaker_boost": True,
+        },
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp, open(mp3_path, "wb") as out:
+            out.write(resp.read())
+        if mp3_path.exists() and mp3_path.stat().st_size > 20_000:
+            print("Voice engine: ElevenLabs multilingual_v2")
+            return True
+    except Exception as e:
+        print(f"ElevenLabs TTS fallback to edge-tts: {e}")
+    return False
+
+
+async def _generate_edge_continuous_voice(full_text: str, mp3_path: Path) -> None:
+    voice_name = os.getenv("EDGE_TTS_VOICE", "").strip() or "ur-PK-AsadNeural"
+    communicate = edge_tts.Communicate(
+        text=full_text,
+        voice=voice_name,
+        rate="-4%",
+        pitch="-3Hz",
+    )
+    await communicate.save(str(mp3_path))
+
+
+def get_media_duration(file_path: Path) -> float:
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(file_path),
+    ]
+    return float(subprocess.check_output(cmd, text=True).strip())
+
+
+def build_long_voice(full_text: str, work_dir: Path, clean_wav: Path) -> float:
+    clean_text = _normalize_urdu_pronunciation(full_text)
+    raw_mp3 = work_dir / "long_narration.mp3"
+    if not _try_elevenlabs_tts(clean_text, raw_mp3):
+        print("Voice engine: edge-tts continuous Urdu long narration")
+        asyncio.run(_generate_edge_continuous_voice(clean_text, raw_mp3))
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(raw_mp3),
+        "-af",
+        "highpass=f=70,lowpass=f=11000,volume=1.0",
+        "-ar",
+        "44100",
+        "-ac",
+        "1",
+        str(clean_wav),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    dur = get_media_duration(clean_wav)
+
+    if dur < MIN_TARGET_DURATION_SEC:
+        pad_needed = round(MIN_TARGET_DURATION_SEC - dur + 1.0, 2)
+        padded_wav = work_dir / "padded_voice.wav"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(clean_wav),
+                "-af",
+                f"apad=pad_dur={pad_needed}",
+                "-ar",
+                "44100",
+                "-ac",
+                "1",
+                str(padded_wav),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        padded_wav.replace(clean_wav)
+        dur = get_media_duration(clean_wav)
+
+    return dur
+
+
+def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path) -> bool:
+    dur = max(60.0, round(duration_sec + 1.0, 2))
+    fade_out_st = max(1.0, dur - 2.0)
+
+    for local_path in LOCAL_MUSIC_CANDIDATES:
+        if local_path.exists() and local_path.stat().st_size > 10_000:
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-stream_loop",
+                "-1",
+                "-i",
+                str(local_path.resolve()),
+                "-t",
+                f"{dur}",
+                "-af",
+                f"highpass=f=85,lowpass=f=2400,volume=0.14,afade=t=in:st=0:d=1.5,afade=t=out:st={fade_out_st}:d=2.0",
+                "-ar",
+                "44100",
+                "-ac",
+                "1",
+                str(out_wav),
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if res.returncode == 0 and out_wav.exists() and out_wav.stat().st_size > 10_000:
+                print(f"Music source: local repo file '{local_path}'")
+                return True
+
+    shuffled_sources = list(MOODY_MUSIC_SOURCES)
+    random.shuffle(shuffled_sources)
+    for idx, src_url in enumerate(shuffled_sources):
+        dl_path = work_dir / f"moody_track_{idx}.mp3"
+        req = urllib.request.Request(src_url, headers={"User-Agent": "Mozilla/5.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp, open(dl_path, "wb") as out:
+                out.write(resp.read())
+            if dl_path.exists() and dl_path.stat().st_size > 100_000:
+                start_offset = random.uniform(5.0, 25.0)
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-stream_loop",
+                    "-1",
+                    "-ss",
+                    f"{start_offset:.2f}",
+                    "-i",
+                    str(dl_path),
+                    "-t",
+                    f"{dur}",
+                    "-af",
+                    f"highpass=f=85,lowpass=f=2400,volume=0.14,afade=t=in:st=0:d=1.5,afade=t=out:st={fade_out_st}:d=2.0",
+                    "-ar",
+                    "44100",
+                    "-ac",
+                    "1",
+                    str(out_wav),
+                ]
+                res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if res.returncode == 0 and out_wav.exists() and out_wav.stat().st_size > 10_000:
+                    print(f"Music source: downloaded track ({src_url})")
+                    return True
+        except Exception as e:
+            print(f"Music download skipped ({src_url}): {e}")
+
+    print("Music source: none")
+    return False
+
+
+def mix_voice_and_music(voice_wav: Path, music_wav: Path, has_music: bool, mixed_wav: Path) -> None:
+    if not has_music or not music_wav.exists():
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(voice_wav), "-c:a", "pcm_s16le", str(mixed_wav)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(voice_wav),
+        "-i",
+        str(music_wav),
+        "-filter_complex",
+        "[0:a]volume=1.08[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]",
+        "-map",
+        "[aout]",
+        "-ar",
+        "44100",
+        "-ac",
+        "1",
+        str(mixed_wav),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _discover_local_clips(used_local: set[Path]) -> list[Path]:
+    found: list[Path] = []
+    for folder in LOCAL_CLIP_DIRS:
+        if folder.exists() and folder.is_dir():
+            for ext in ("*.mp4", "*.mov", "*.mkv", "*.webm"):
+                for p in sorted(folder.glob(ext)):
+                    if p.is_file() and p.stat().st_size > 20_000 and p.resolve() not in used_local:
+                        found.append(p.resolve())
+    return found
+
+
+def pick_local_clip(used_local: set[Path]) -> Path | None:
+    candidates = _discover_local_clips(used_local)
+    if not candidates:
+        used_local.clear()
+        candidates = _discover_local_clips(used_local)
+    if not candidates:
+        return None
+    chosen = random.choice(candidates)
+    used_local.add(chosen)
+    return chosen
+
+
+def fetch_pixabay_clip(query: str, api_key: str, used_urls: set[str]) -> str | None:
+    if not api_key or not query:
+        return None
+    encoded_q = urllib.parse.quote(query)
+    encoded_key = urllib.parse.quote(api_key)
+    url = f"https://pixabay.com/api/videos/?key={encoded_key}&q={encoded_q}&per_page=15&safesearch=true"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            for hit in data.get("hits", []):
+                videos = hit.get("videos", {})
+                candidates = []
+                for key in ("large", "medium", "small", "tiny"):
+                    info = videos.get(key) or {}
+                    link = info.get("url")
+                    if link:
+                        h = info.get("height") or 0
+                        w = info.get("width") or 0
+                        candidates.append((link, h, w))
+                candidates.sort(key=lambda item: (0 if item[1] >= item[2] else 1, -item[1]))
+                for link, _, _ in candidates:
+                    if link not in used_urls:
+                        used_urls.add(link)
+                        return link
+    except Exception as e:
+        print(f"Pixabay search failed for '{query}': {e}")
+    return None
+
+
+def download_file(url: str, dest: Path) -> bool:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp, open(dest, "wb") as out:
+            out.write(resp.read())
+        return dest.exists() and dest.stat().st_size > 50_000
+    except Exception as e:
+        print(f"Download failed for {url}: {e}")
+        return False
+
+
+def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
+    colors = ["0x0c1322", "0x151e30", "0x101827", "0x192236"]
+    c = colors[idx % len(colors)]
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        f"color=c={c}:s=1080x1920:d={dur}",
+        "-vf",
+        "fps=30",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-pix_fmt",
+        "yuv420p",
+        str(dest),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
+    if idx % 2 == 0:
+        crop_w, crop_h = 980, 1742
+        x_expr = "(iw-ow)/2 + ((iw-ow)*0.15)*sin(t*0.55)"
+        y_expr = "(ih-oh)/2"
+    else:
+        crop_w, crop_h = 970, 1724
+        x_expr = "(iw-ow)/2"
+        y_expr = "(ih-oh)/2 + ((ih-oh)*0.13)*cos(t*0.5)"
+
+    vf = (
+        "scale=1080:1920:force_original_aspect_ratio=increase,"
+        f"crop=w={crop_w}:h={crop_h}:x='{x_expr}':y='{y_expr}',"
+        "scale=1080:1920:flags=lanczos,"
+        "eq=contrast=1.10:brightness=0.01:saturation=1.15,"
+        f"trim=duration={dur},setpts=PTS-STARTPTS,fps=30"
+    )
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-stream_loop",
+        "-1",
+        "-i",
+        str(raw_path),
+        "-vf",
+        vf,
+        "-an",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "22",
+        "-pix_fmt",
+        "yuv420p",
+        str(out_path),
+    ]
+    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return res.returncode == 0 and out_path.exists() and out_path.stat().st_size > 15_000
+
+
+def _build_32_scene_slots(chapters: list[dict], total_duration: float) -> list[dict]:
+    all_beats: list[dict] = []
+    for ch in chapters:
+        for b in ch.get("scene_beats") or []:
+            all_beats.append({
+                "line": str(b.get("line") or "").strip(),
+                "query": str(b.get("query") or "dark night sky").strip(),
+            })
+
+    if not all_beats:
+        all_beats = [{"line": "واقعہ جاری ہے", "query": "dark night sky"}]
+
+    slots: list[dict] = []
+    for idx in range(TARGET_CLIPS_COUNT):
+        src = all_beats[idx % len(all_beats)]
+        slots.append({
+            "line": src["line"],
+            "query": src["query"],
+            "weight": max(3, len(src["line"].split())),
+        })
+
+    total_w = sum(s["weight"] for s in slots) or len(slots)
+    cursor = 0.0
+    for idx, s in enumerate(slots):
+        if idx == len(slots) - 1:
+            end_t = round(total_duration, 2)
+        else:
+            end_t = round(min(total_duration, cursor + (total_duration * s["weight"]) / total_w), 2)
+        dur = max(2.5, round(end_t - cursor, 2))
+        s["start"] = round(cursor, 2)
+        s["end"] = round(cursor + dur, 2)
+        s["dur"] = dur
+        cursor = s["end"]
+
+    if slots:
+        slots[-1]["end"] = round(total_duration, 2)
+        slots[-1]["dur"] = max(2.5, round(slots[-1]["end"] - slots[-1]["start"], 2))
+
+    return slots
+
+
+def _format_ass_time(sec: float) -> str:
+    sec = max(0.0, sec)
+    hours = int(sec // 3600)
+    mins = int((sec % 3600) // 60)
+    secs = sec % 60
+    return f"{hours}:{mins:02d}:{secs:05.2f}"
+
+
+def _build_caption_chunks_from_slots(slots: list[dict]) -> list[dict]:
+    chunks: list[dict] = []
+    for s in slots:
+        words = s["line"].split()
+        if not words:
+            continue
+        sub_pieces = [" ".join(words[i : i + 4]).strip() for i in range(0, len(words), 4)]
+        sub_pieces = [p for p in sub_pieces if p]
+        span = max(0.4, s["end"] - s["start"])
+        step = span / len(sub_pieces)
+        for p_idx, piece in enumerate(sub_pieces):
+            st = round(s["start"] + p_idx * step, 2)
+            en = round(s["end"] if p_idx == len(sub_pieces) - 1 else s["start"] + (p_idx + 1) * step, 2)
+            if en > st:
+                chunks.append({"text": piece, "start": st, "end": en})
+    return chunks
+
+
+def _render_ass_on_image_or_video(
+    input_media: Path,
+    output_media: Path,
+    ass_text: str,
+    ass_path: Path,
+    font_file: str,
+    is_still_image: bool = False,
+) -> bool:
+    ass_path.write_text(ass_text, encoding="utf-8")
+    escaped_ass = str(ass_path.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    fonts_dir = ""
+    if font_file:
+        fonts_dir = str(Path(font_file).parent).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+    vf_sub = f"subtitles='{escaped_ass}'" + (f":fontsdir='{fonts_dir}'" if fonts_dir else "")
+    cmd = ["ffmpeg", "-y", "-i", str(input_media), "-vf", vf_sub]
+    if is_still_image:
+        cmd += ["-frames:v", "1", "-q:v", "2", str(output_media)]
+    else:
+        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "22", "-pix_fmt", "yuv420p", str(output_media)]
+
+    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return res.returncode == 0 and output_media.exists() and output_media.stat().st_size > 2000
+
+
+def generate_thumbnail(first_clip: Path, thumb_text: str, work_dir: Path, font_name: str, font_file: str) -> None:
+    base_frame = work_dir / "long_thumb_base.png"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(first_clip),
+            "-ss",
+            "0.4",
+            "-vframes",
+            "1",
+            "-vf",
+            "scale=1080:1920,eq=contrast=1.18:brightness=-0.06:saturation=1.15",
+            str(base_frame),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if not base_frame.exists() or base_frame.stat().st_size < 2000:
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0x0b1021:s=1080x1920", "-vframes", "1", str(base_frame)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    clean_headline = thumb_text.replace("{", "").replace("}", "").strip() or "مکمل واقعہ اور سبق"
+    ass_header = (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1080\n"
+        "PlayResY: 1920\n"
+        "ScaledBorderAndShadow: yes\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        f"Style: Thumb,{font_name},94,&H0000FFFF,&H0000FFFF,&H00000000,&HB0000000,"
+        "-1,0,0,0,105,105,0,0,3,6,4,5,70,70,220,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        f"Dialogue: 0,0:00:00.00,0:00:05.00,Thumb,,0,0,0,,{clean_headline}\n"
+    )
+    ok = _render_ass_on_image_or_video(
+        base_frame,
+        OUTPUT_THUMBNAIL,
+        ass_header,
+        work_dir / "long_thumb.ass",
+        font_file,
+        is_still_image=True,
+    )
+    if not ok:
+        subprocess.run(["cp", "-f", str(base_frame), str(OUTPUT_THUMBNAIL)], check=False)
+
+
+def burn_ass_captions(
+    input_video: Path,
+    output_video: Path,
+    caption_chunks: list[dict],
+    ass_path: Path,
+    font_name: str,
+    font_file: str,
+) -> None:
+    header = (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1080\n"
+        "PlayResY: 1920\n"
+        "Scaled
