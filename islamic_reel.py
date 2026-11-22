@@ -21,6 +21,11 @@ LOCAL_MUSIC_CANDIDATES = [
     Path("background_music.mp3"),
 ]
 
+LOCAL_CLIP_DIRS = [
+    Path("assets/clips"),
+    Path("assets"),
+]
+
 FONT_SOURCES = [
     (
         "Noto Naskh Arabic",
@@ -40,20 +45,20 @@ MOODY_MUSIC_SOURCES = [
     "https://archive.org/download/SadPianoInstrumental/Sad%20Piano%20Instrumental.mp3",
 ]
 
-DISTINCT_TOPICS = [
-    "Dajjal ka fitna, uski azmaishon ki haqeeqat, aur iman bachane ka sabaq",
-    "Yajooj Majooj ka zikr, rukawat ke khulne ka waqt, aur ghaflat se bachne ki yaad-dihani",
-    "Aakhri Zamana ki nishaniyan aur badalte waqt mein dil aur amal ko sambhalna",
-    "Hadees ki roshni mein waqt, iman, aur aakhirat ki tayari ka sabaq",
-    "Nabiyon ke sachay waqiat se sabr, yaqeen, aur mushkil waqt mein Allah par bharosa",
-    "Sahaba ke achhay aur sachay waqiat se sachai, qurbaani, aur pak dil ka sabaq",
+TOPIC_POOL = [
+    "Dajjal ka fitna aur iman bachane ka sabaq",
+    "Yajooj Majooj ka zikr aur aane wale waqt ki yaad-dihani",
+    "Aakhri Zamana ki aham nishaniyan aur ghaflat se bachna",
+    "Hadees ki roshni mein zindagi aur aakhirat ka sabaq",
+    "Nabiyon ke sachay waqiat se sabr aur yaqeen ka sabaq",
+    "Sahaba ke achhay aur sachay waqiat se sachai aur qurbaani ka sabaq",
 ]
 
-HOOK_STYLES = [
-    "Start in 2 seconds with a sharp, unexpected truth that stops scrolling immediately.",
-    "Start with a gripping question that creates instant curiosity without sounding generic.",
-    "Start right in the middle of a powerful realization or true moment.",
-    "Start with a bold contrast between what people chase and what actually matters.",
+HOOK_ANGLES = [
+    "Open immediately with a sharp, gripping line that pulls the viewer in within 2 seconds.",
+    "Open with a direct, thought-provoking question tied to the topic without any slow intro.",
+    "Start right inside the core moment or turning point of the event/reminder.",
+    "Start with a strong contrast between worldly distraction and real spiritual awareness.",
 ]
 
 
@@ -75,7 +80,7 @@ def load_history() -> dict:
 def save_history(history: dict) -> None:
     payload = {
         "used_ids": (history.get("used_ids") or [])[-150:],
-        "recent_summaries": (history.get("recent_summaries") or [])[-12:],
+        "recent_summaries": (history.get("recent_summaries") or [])[-15:],
     }
     HISTORY_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -130,11 +135,12 @@ def _build_dynamic_tags(raw_tags: object, topic: str, title: str, sections: list
         topic_specific += ["Sahaba Ke Waqiat", "Sahaba Stories Urdu", "صحابہ کے واقعات", "صحابہ کے سچے واقعات"]
 
     urdu_words = re.findall(r"[\u0600-\u06FF]{3,14}", " ".join(x.get("text", "") for x in sections[:2]))
-    for uw in urdu_words[:6]:
+    for uw in urdu_words[:5]:
         if uw not in topic_specific:
             topic_specific.append(uw)
 
     viral_reach_tags = [
+        "Storybox",
         "Islamic Shorts",
         "Urdu Islamic Shorts",
         "Islamic Reminder",
@@ -196,39 +202,33 @@ def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
     used_ids = history.get("used_ids") or []
     recent_summaries = history.get("recent_summaries") or []
 
-    chosen_topic = random.choice(DISTINCT_TOPICS)
-    chosen_hook = random.choice(HOOK_STYLES)
+    chosen_topic = random.choice(TOPIC_POOL)
+    chosen_hook = random.choice(HOOK_ANGLES)
     run_nonce = random.randint(100000, 999999)
 
-    avoid_text = "\n".join(f"- {s}" for s in recent_summaries[-8:]) if recent_summaries else "- None yet"
+    avoid_text = "\n".join(f"- {s}" for s in recent_summaries[-12:]) if recent_summaries else "- None yet"
 
     prompt = (
-        f"Unique session #{run_nonce}. Create a high-retention 28-35 second vertical YouTube Short script in natural spoken URDU SCRIPT (اردو رسم الخط) "
-        f"on this exact topic: {chosen_topic}. "
-        f"Hook instruction: {chosen_hook}\n"
-        "RETENTION & PACING RULES:\n"
-        "- Total length: ~75-85 Urdu words across 5 tight, fast-moving sections (~14-17 Urdu words per section). No filler or slow buildup.\n"
-        "- Section 1 (Instant Hook): Grab attention immediately with a strong opening line.\n"
-        "- Section 2 (Curiosity Escalation): Deepen the tension or reveal a key detail that keeps viewers watching.\n"
-        "- Section 3 (Core Turning Point): Deliver the heart of the message or true event cleanly.\n"
-        "- Section 4 (Practical/Emotional Shift): Give a crisp, relatable realization.\n"
-        "- Section 5 (Hard-Hitting Payoff): End on a memorable, thought-provoking closing line that feels complete yet replay-worthy.\n"
-        "- Stay truthful and respectful to Islamic teachings, Hadith, Dajjal, Yajooj Majooj, Aakhri Zamana, and true stories of Prophets and Sahaba.\n"
-        "- Use plain everyday Pakistani/Urdu words (وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، سچائی، ایمان، صبر) with zero English or Roman words in 'sections'.\n"
-        "- Do NOT repeat previous scripts or openings below.\n"
-        "- Create a punchy, curiosity-driven 'title' (under 75 chars) and short 'thumb_text' (3-4 Urdu words) + 12 targeted 'tags' (no '#').\n"
-        "- Give each section a dramatic visual 'query' (2-3 English words) and 'backup' (2-3 English words).\n"
-        "PREVIOUS SCRIPTS TO AVOID REPEATING:\n"
+        f"Session #{run_nonce}. Write a high-retention 26-34 second vertical YouTube Short script in natural spoken URDU SCRIPT (اردو رسم الخط) "
+        f"on topic: {chosen_topic}.\n"
+        f"Opening rule: {chosen_hook}\n"
+        "RULES:\n"
+        "- Total ~72-84 Urdu words across 4 tight sections (~16-21 words each). No slow buildup or repetition.\n"
+        "- Keep facts respectful and accurate for Dajjal, Yajooj Majooj, Aakhri Zamana, Hadees, Nabiyon ke sachay waqiat, and Sahaba ke achhay waqiat.\n"
+        "- Use clear everyday Pakistani/Urdu words (وقت، دل، دن، رات، سکون، دعا، توبہ، یاد، نیکی، بھلائی، سچائی، ایمان، صبر) with zero English or Roman words in 'sections'.\n"
+        "- Do NOT repeat any of the recent script summaries below.\n"
+        "- Provide a punchy 'title' (under 75 chars), short 'thumb_text' (3-4 Urdu words), 12 'tags' (no '#'), and for each section give 'query' (2-3 English words) + 'sub_query' (2-3 English words).\n"
+        "RECENT SCRIPTS TO AVOID:\n"
         f"{avoid_text}\n"
         "Output ONLY valid JSON:\n"
         "{\n"
         f'  "id": "sabaq_{run_nonce}",\n'
-        '  "title": "تیز اور پرکشش اردو عنوان",\n'
+        '  "title": "پرکشش اردو عنوان",\n'
         '  "thumb_text": "تھمب نیل سرخی",\n'
-        '  "tags": ["اس ویڈیو کا ٹیگ", "Islamic Shorts"],\n'
-        '  "summary": "Short 1-line summary of what this specific video covers",\n'
+        '  "tags": ["ٹیگ ایک", "Islamic Shorts"],\n'
+        '  "summary": "Short 1-line summary of this specific script",\n'
         '  "sections": [\n'
-        '    {"text": "اردو بات", "query": "stormy ocean dark", "backup": "dark waves night"}\n'
+        '    {"text": "اردو بات", "query": "stormy ocean dark", "sub_query": "dark clouds sky"}\n'
         "  ]\n"
         "}"
     )
@@ -283,11 +283,11 @@ def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
         raise RuntimeError("Gemini did not return valid JSON script.")
 
     sections = parsed.get("sections")
-    if not isinstance(sections, list) or len(sections) < 4:
+    if not isinstance(sections, list) or len(sections) < 3:
         raise RuntimeError("Gemini returned insufficient script sections.")
 
     valid_sections = []
-    for item in sections[:5]:
+    for item in sections[:4]:
         if isinstance(item, dict) and item.get("text") and item.get("query"):
             txt = _normalize_urdu_pronunciation(str(item["text"]))
             if not _has_urdu_script(txt):
@@ -295,10 +295,10 @@ def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
             valid_sections.append({
                 "text": txt,
                 "query": str(item["query"]).strip(),
-                "backup": str(item.get("backup") or "stormy ocean dark").strip(),
+                "sub_query": str(item.get("sub_query") or item.get("backup") or "dark clouds sky").strip(),
             })
 
-    if len(valid_sections) < 4:
+    if len(valid_sections) < 3:
         raise RuntimeError("Not enough valid Urdu sections generated by Gemini.")
 
     lesson_id = str(parsed.get("id") or f"sabaq_{run_nonce}")
@@ -307,7 +307,7 @@ def generate_lesson_with_gemini(api_key: str, history: dict) -> dict:
 
     raw_title = str(parsed.get("title") or "").strip()
     clean_title = re.sub(r"\s+", " ", raw_title).strip()
-    title = clean_title if _has_urdu_script(clean_title) else "آخری زمانہ کی اہم بات"
+    title = clean_title if _has_urdu_script(clean_title) else "آخری زمانہ کی بات"
 
     raw_thumb = _normalize_urdu_pronunciation(str(parsed.get("thumb_text") or ""))
     thumb_text = raw_thumb if _has_urdu_script(raw_thumb) else _normalize_urdu_pronunciation(title.split("|")[0]).strip()
@@ -395,8 +395,8 @@ async def _generate_edge_continuous_voice(full_text: str, mp3_path: Path) -> Non
     communicate = edge_tts.Communicate(
         text=full_text,
         voice=voice_name,
-        rate="+5%",
-        pitch="-4Hz",
+        rate="+6%",
+        pitch="-3Hz",
     )
     await communicate.save(str(mp3_path))
 
@@ -441,7 +441,7 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
                 "-t",
                 f"{dur}",
                 "-af",
-                f"highpass=f=85,lowpass=f=2400,volume=0.18,afade=t=in:st=0:d=1.2,afade=t=out:st={fade_out_st}:d=1.5",
+                f"highpass=f=85,lowpass=f=2400,volume=0.16,afade=t=in:st=0:d=1.0,afade=t=out:st={fade_out_st}:d=1.5",
                 "-ar",
                 "44100",
                 "-ac",
@@ -475,7 +475,7 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
                     "-t",
                     f"{dur}",
                     "-af",
-                    f"highpass=f=85,lowpass=f=2400,volume=0.18,afade=t=in:st=0:d=1.2,afade=t=out:st={fade_out_st}:d=1.5",
+                    f"highpass=f=85,lowpass=f=2400,volume=0.16,afade=t=in:st=0:d=1.0,afade=t=out:st={fade_out_st}:d=1.5",
                     "-ar",
                     "44100",
                     "-ac",
@@ -489,7 +489,7 @@ def prepare_moody_music_track(duration_sec: float, work_dir: Path, out_wav: Path
         except Exception as e:
             print(f"Music download skipped ({src_url}): {e}")
 
-    print("Music source: none (tip: add assets/moody_music.mp3 to repo for guaranteed background music)")
+    print("Music source: none")
     return False
 
 
@@ -511,7 +511,7 @@ def mix_voice_and_music(voice_wav: Path, music_wav: Path, has_music: bool, mixed
         "-i",
         str(music_wav),
         "-filter_complex",
-        "[0:a]volume=1.05[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]",
+        "[0:a]volume=1.08[v];[1:a]volume=1.0[m];[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]",
         "-map",
         "[aout]",
         "-ar",
@@ -535,6 +535,29 @@ def get_media_duration(file_path: Path) -> float:
         str(file_path),
     ]
     return float(subprocess.check_output(cmd, text=True).strip())
+
+
+def _discover_local_clips(used_local: set[Path]) -> list[Path]:
+    found: list[Path] = []
+    for folder in LOCAL_CLIP_DIRS:
+        if folder.exists() and folder.is_dir():
+            for ext in ("*.mp4", "*.mov", "*.mkv", "*.webm"):
+                for p in sorted(folder.glob(ext)):
+                    if p.is_file() and p.stat().st_size > 20_000 and p.resolve() not in used_local:
+                        found.append(p.resolve())
+    return found
+
+
+def pick_local_clip(used_local: set[Path]) -> Path | None:
+    candidates = _discover_local_clips(used_local)
+    if not candidates:
+        used_local.clear()
+        candidates = _discover_local_clips(used_local)
+    if not candidates:
+        return None
+    chosen = random.choice(candidates)
+    used_local.add(chosen)
+    return chosen
 
 
 def fetch_pixabay_clip(query: str, api_key: str, used_urls: set[str]) -> str | None:
@@ -579,7 +602,7 @@ def download_file(url: str, dest: Path) -> bool:
 
 
 def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
-    colors = ["0x090d16", "0x111827", "0x0f172a", "0x172033", "0x0b1021"]
+    colors = ["0x0c1322", "0x151e30", "0x101827", "0x192236"]
     c = colors[idx % len(colors)]
     cmd = [
         "ffmpeg",
@@ -589,7 +612,7 @@ def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
         "-i",
         f"color=c={c}:s=1080x1920:d={dur}",
         "-vf",
-        "vignette=PI/4,fps=30",
+        "fps=30",
         "-c:v",
         "libx264",
         "-preset",
@@ -602,34 +625,27 @@ def build_fallback_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def edit_pro_clip(raw_path: Path, out_path: Path, dur: float, idx: int) -> bool:
-    fade_d = min(0.30, max(0.12, dur * 0.07))
-    fade_out_st = max(0.1, dur - fade_d)
-
-    if idx % 3 == 0:
+    if idx % 2 == 0:
         crop_w, crop_h = 980, 1742
-        x_expr = "(iw-ow)/2 + ((iw-ow)*0.18)*sin(t*0.55)"
-        y_expr = "(ih-oh)/2 + ((ih-oh)*0.08)*cos(t*0.4)"
-    elif idx % 3 == 1:
-        crop_w, crop_h = 960, 1707
-        x_expr = "(iw-ow)/2 + ((iw-ow)*0.12)*cos(t*0.5)"
-        y_expr = "(ih-oh)/2 + ((ih-oh)*0.16)*sin(t*0.55)"
-    else:
-        crop_w, crop_h = 1000, 1778
-        x_expr = "(iw-ow)/2 - ((iw-ow)*0.14)*sin(t*0.45)"
+        x_expr = "(iw-ow)/2 + ((iw-ow)*0.16)*sin(t*0.65)"
         y_expr = "(ih-oh)/2"
+    else:
+        crop_w, crop_h = 970, 1724
+        x_expr = "(iw-ow)/2"
+        y_expr = "(ih-oh)/2 + ((ih-oh)*0.14)*cos(t*0.6)"
 
     vf = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         f"crop=w={crop_w}:h={crop_h}:x='{x_expr}':y='{y_expr}',"
         "scale=1080:1920:flags=lanczos,"
-        "eq=contrast=1.14:brightness=-0.02:saturation=1.18,"
-        "vignette=PI/4.5,"
-        f"fade=t=in:st=0:d={fade_d:.2f},fade=t=out:st={fade_out_st:.2f}:d={fade_d:.2f},"
+        "eq=contrast=1.10:brightness=0.01:saturation=1.15,"
         f"trim=duration={dur},setpts=PTS-STARTPTS,fps=30"
     )
     cmd = [
         "ffmpeg",
         "-y",
+        "-stream_loop",
+        "-1",
         "-i",
         str(raw_path),
         "-vf",
@@ -723,11 +739,11 @@ def generate_thumbnail(
             "-i",
             str(first_clip),
             "-ss",
-            "0.5",
+            "0.4",
             "-vframes",
             "1",
             "-vf",
-            "scale=1080:1920,eq=contrast=1.22:brightness=-0.10:saturation=1.15,vignette=PI/3.5",
+            "scale=1080:1920,eq=contrast=1.18:brightness=-0.06:saturation=1.15",
             str(base_frame),
         ],
         stdout=subprocess.DEVNULL,
@@ -798,7 +814,7 @@ def burn_ass_captions(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Default,{font_name},80,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,"
+        f"Style: Default,{font_name},82,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,"
         "-1,0,0,0,100,100,0,0,1,4,3,2,55,55,370,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -809,8 +825,7 @@ def burn_ass_captions(
         start_str = _format_ass_time(seg["start"])
         end_str = _format_ass_time(seg["end"])
         clean_txt = seg["text"].replace("{", "").replace("}", "").strip()
-        styled_txt = f"{{\\fad(80,60)}}{clean_txt}"
-        events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{styled_txt}")
+        events.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{clean_txt}")
 
     ok = _render_ass_on_image_or_video(
         input_video,
@@ -827,6 +842,32 @@ def burn_ass_captions(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+
+
+def _build_one_subclip(
+    query_list: list[str],
+    dur: float,
+    idx: int,
+    work_dir: Path,
+    pixabay_key: str,
+    used_urls: set[str],
+    used_local: set[Path],
+) -> Path:
+    out_clip = work_dir / f"subclip_{idx:02d}.mp4"
+    local_clip = pick_local_clip(used_local)
+    if local_clip and edit_pro_clip(local_clip, out_clip, dur, idx):
+        return out_clip
+
+    for q in query_list:
+        url = fetch_pixabay_clip(q, pixabay_key, used_urls)
+        if url:
+            raw_clip = work_dir / f"raw_{idx:02d}.mp4"
+            if download_file(url, raw_clip):
+                if edit_pro_clip(raw_clip, out_clip, dur, idx):
+                    return out_clip
+
+    build_fallback_clip(out_clip, dur, idx)
+    return out_clip
 
 
 def main() -> None:
@@ -864,29 +905,30 @@ def main() -> None:
     acc = 0.0
     for idx, wc in enumerate(sec_word_counts):
         if idx == len(sec_word_counts) - 1:
-            d = max(2.0, round(total_voice_dur - acc, 2))
+            d = max(2.4, round(total_voice_dur - acc, 2))
         else:
-            d = max(2.0, round((total_voice_dur * wc) / total_words, 2))
+            d = max(2.4, round((total_voice_dur * wc) / total_words, 2))
             acc = round(acc + d, 2)
         sec_durations.append(d)
 
     used_urls: set[str] = set()
+    used_local: set[Path] = set()
     edited_clips: list[Path] = []
+    sub_idx = 0
 
-    for idx, (item, clip_dur) in enumerate(zip(sections, sec_durations)):
-        out_clip = work_dir / f"clip_{idx:02d}.mp4"
-        ok = False
-        for q in (item.get("query", ""), item.get("backup", "")):
-            url = fetch_pixabay_clip(q, pixabay_key, used_urls)
-            if url:
-                raw_clip = work_dir / f"raw_{idx:02d}.mp4"
-                if download_file(url, raw_clip):
-                    ok = edit_pro_clip(raw_clip, out_clip, clip_dur, idx)
-                    if ok:
-                        break
-        if not ok:
-            build_fallback_clip(out_clip, clip_dur, idx)
-        edited_clips.append(out_clip)
+    for item, sec_dur in zip(sections, sec_durations):
+        q1 = item.get("query", "")
+        q2 = item.get("sub_query", "")
+        if sec_dur >= 5.5:
+            half_a = round(sec_dur * 0.5, 2)
+            half_b = max(1.8, round(sec_dur - half_a, 2))
+            edited_clips.append(_build_one_subclip([q1, q2], half_a, sub_idx, work_dir, pixabay_key, used_urls, used_local))
+            sub_idx += 1
+            edited_clips.append(_build_one_subclip([q2, q1], half_b, sub_idx, work_dir, pixabay_key, used_urls, used_local))
+            sub_idx += 1
+        else:
+            edited_clips.append(_build_one_subclip([q1, q2], sec_dur, sub_idx, work_dir, pixabay_key, used_urls, used_local))
+            sub_idx += 1
 
     generate_thumbnail(edited_clips[0], lesson["thumb_text"], work_dir, font_name, font_file)
 
@@ -954,7 +996,7 @@ def main() -> None:
         "title": lesson["title"][:95],
         "description": (
             f"{full_text}\n\n"
-            "#IslamicShorts #AkhriZamana #UrduReminder #IslamicReminder #Shorts"
+            "#Storybox #IslamicShorts #AkhriZamana #UrduReminder #Shorts"
         ),
         "tags": lesson["tags"],
         "thumbnail_path": str(OUTPUT_THUMBNAIL) if OUTPUT_THUMBNAIL.exists() else "",
