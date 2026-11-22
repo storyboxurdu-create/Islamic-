@@ -14,8 +14,8 @@ OUTPUT_META = Path("long_meta.json")
 OUTPUT_THUMBNAIL = Path("long_thumbnail.jpg")
 HISTORY_FILE = Path("islamic_long_history.json")
 
-MIN_STORY_SEC = 180.0  # 3+ minutes natural story voice
-TARGET_CLIPS = 32
+MIN_STORY_SEC = 180.0  # Full 3+ minutes natural story voice
+TARGET_CLIPS = 24  # Faster build + smooth 1920x1080 scenes
 
 PROPHET_TOPICS = [
     "Hazrat Yousuf (AS) ka sabr, azmaish aur sabse dilchasp mukammal waqia Urdu mein",
@@ -44,14 +44,17 @@ DEFAULT_SCENE_QUERIES = [
 ]
 
 TEXT_COLORS = [
-    "0xFFE639",  # Bright Gold/Yellow
-    "0x7CFF9E",  # Mint Green
-    "0x5CE1E6",  # Cyan
-    "0xFF9F43",  # Warm Orange
-    "0xFFFFFF",  # Crisp White
+    "0xFFD60A",  # Bold Gold
+    "0x4ADE80",  # Bright Green
+    "0x38BDF8",  # Bright Sky Blue
+    "0xFB923C",  # Bold Orange
+    "0xFFFFFF",  # Pure White
 ]
 
-FONT_URL = "https://github.com/google/fonts/raw/main/ofl/notonaskharabic/NotoNaskhArabic%5Bwght%5D.ttf"
+FONT_URLS = [
+    "https://github.com/google/fonts/raw/main/ofl/notonaskharabic/NotoNaskhArabic%5Bwght%5D.ttf",
+    "https://github.com/google/fonts/raw/main/notonastaliqurdu/NotoNastaliqUrdu%5Bwght%5D.ttf",
+]
 
 
 def get_dur(path: Path) -> float:
@@ -74,11 +77,18 @@ def get_dur(path: Path) -> float:
 def ensure_font(work: Path) -> Path:
     font_dir = work / "fonts"
     font_dir.mkdir(parents=True, exist_ok=True)
-    dest = font_dir / "NotoNaskhArabic.ttf"
+    dest = font_dir / "UrduBoldFont.ttf"
     if not dest.exists() or dest.stat().st_size < 20_000:
-        req = urllib.request.Request(FONT_URL, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=25) as resp, open(dest, "wb") as out:
-            out.write(resp.read())
+        for url in FONT_URLS:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=25) as resp, open(dest, "wb") as out:
+                    out.write(resp.read())
+                if dest.exists() and dest.stat().st_size > 20_000:
+                    break
+            except Exception as e:
+                print(f"Font download note: {e}")
+
     if not dest.exists() or dest.stat().st_size < 20_000:
         for sys_font in [
             "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
@@ -266,49 +276,53 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
     return title, full_story, tags, queries, topic
 
 
-async def make_tts_and_boundaries(text: str, mp3_path: Path) -> list[dict]:
+async def make_tts_and_word_chunks(text: str, mp3_path: Path) -> list[tuple[float, str]]:
     voice = os.getenv("EDGE_TTS_VOICE", "").strip() or "ur-PK-AsadNeural"
     communicate = edge_tts.Communicate(text=text, voice=voice, rate="-6%")
-    word_events: list[tuple[float, float, str]] = []
+    starts_and_words: list[tuple[float, str]] = []
 
     with open(mp3_path, "wb") as out:
         async for chunk in communicate.stream():
             ctype = chunk.get("type")
             if ctype == "audio":
                 out.write(chunk["data"])
-            elif ctype in ("WordBoundary", "SentenceBoundary"):
+            elif ctype == "WordBoundary":
                 offset_s = float(chunk.get("offset", 0)) / 10_000_000.0
-                dur_s = max(0.08, float(chunk.get("duration", 1_500_000)) / 10_000_000.0)
-                piece = str(chunk.get("text") or "").strip()
-                if piece:
-                    word_events.append((offset_s, offset_s + dur_s, piece))
+                word = str(chunk.get("text") or "").strip()
+                if word:
+                    starts_and_words.append((offset_s, word))
 
-    phrases: list[dict] = []
-    if word_events:
-        group_size = 5
-        for i in range(0, len(word_events), group_size):
-            grp = word_events[i : i + group_size]
-            st = round(grp[0][0], 2)
-            en = round(max(grp[-1][1], st + 0.7), 2)
-            txt = " ".join(w[2] for w in grp).strip()
-            if txt and en > st:
-                phrases.append({"start": st, "end": en, "text": txt})
-    return phrases
+    # Group 3 words at a time so each phrase ends strictly when the next group starts
+    grouped: list[tuple[float, str]] = []
+    for i in range(0, len(starts_and_words), 3):
+        grp = starts_and_words[i : i + 3]
+        phrase = " ".join(w for _, w in grp).strip()
+        if phrase:
+            grouped.append((round(grp[0][0], 2), phrase))
+    return grouped
 
 
-def build_fallback_phrases(story_text: str, total_dur: float) -> list[dict]:
-    words = [w for w in re.split(r"\s+", story_text.strip()) if w]
-    if not words:
-        return [{"start": 0.0, "end": total_dur, "text": "مکمل واقعہ"}]
-    chunks = [" ".join(words[i : i + 5]) for i in range(0, len(words), 5)]
-    step = total_dur / len(chunks)
-    out: list[dict] = []
-    for idx, ch in enumerate(chunks):
-        st = round(idx * step, 2)
-        en = round(total_dur if idx == len(chunks) - 1 else (idx + 1) * step, 2)
-        if en > st:
-            out.append({"start": st, "end": en, "text": ch})
-    return out
+def build_sequential_segments(
+    grouped_starts: list[tuple[float, str]],
+    story_text: str,
+    total_dur: float,
+) -> list[dict]:
+    if not grouped_starts:
+        words = [w for w in re.split(r"\s+", story_text.strip()) if w]
+        chunks = [" ".join(words[i : i + 3]) for i in range(0, len(words), 3)] or ["مکمل واقعہ"]
+        step = total_dur / len(chunks)
+        grouped_starts = [(round(i * step, 2), ch) for i, ch in enumerate(chunks)]
+
+    segments: list[dict] = []
+    for idx, (st, phrase) in enumerate(grouped_starts):
+        st_c = max(0.0, min(st, max(0.0, total_dur - 0.15)))
+        if idx + 1 < len(grouped_starts):
+            en_c = max(st_c + 0.12, min(grouped_starts[idx + 1][0], total_dur))
+        else:
+            en_c = total_dur
+        if en_c > st_c + 0.05:
+            segments.append({"start": round(st_c, 2), "end": round(en_c, 2), "text": phrase})
+    return segments
 
 
 def make_color_clip(dest: Path, dur: float, idx: int) -> None:
@@ -340,13 +354,13 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
     if idx % 2 == 0:
         vf = (
             "scale=2048:1152:force_original_aspect_ratio=increase,"
-            "crop=w=1920:h=1080:x='(iw-ow)/2+((iw-ow)*0.45)*sin(t*0.4)':y='(ih-oh)/2',"
+            "crop=w=1920:h=1080:x='(iw-ow)/2+((iw-ow)*0.4)*sin(t*0.35)':y='(ih-oh)/2',"
             "eq=contrast=1.08:saturation=1.12,fps=30,format=yuv420p"
         )
     else:
         vf = (
             "scale=2048:1152:force_original_aspect_ratio=increase,"
-            "crop=w=1920:h=1080:x='(iw-ow)/2':y='(ih-oh)/2+((ih-oh)*0.45)*cos(t*0.4)',"
+            "crop=w=1920:h=1080:x='(iw-ow)/2':y='(ih-oh)/2+((ih-oh)*0.4)*cos(t*0.35)',"
             "eq=contrast=1.08:saturation=1.12,fps=30,format=yuv420p"
         )
 
@@ -404,7 +418,7 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
 def apply_captions_and_popups(
     input_video: Path,
     output_video: Path,
-    phrases: list[dict],
+    segments: list[dict],
     font_path: Path,
     total_dur: float,
     work: Path,
@@ -412,47 +426,59 @@ def apply_captions_and_popups(
     font_str = str(font_path.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\u2019")
     filter_parts: list[str] = []
 
-    # Dark strip behind bottom live captions for crisp readability
-    filter_parts.append(
-        "drawbox=x=0:y=ih-165:w=iw:h=165:color=black@0.58:t=fill"
-    )
+    # Thick dark bar at bottom so large bold Urdu text always stands out clearly
+    filter_parts.append("drawbox=x=0:y=ih-195:w=iw:h=195:color=black@0.72:t=fill")
 
-    # Colorful moving/changing captions synced with voice phrases
-    for idx, p in enumerate(phrases):
-        st = max(0.0, float(p["start"]))
-        en = min(total_dur, max(st + 0.5, float(p["end"])))
+    # Each segment starts right when the previous ends (no overlap) and glides horizontally
+    for idx, seg in enumerate(segments):
+        st = max(0.0, float(seg["start"]))
+        en = min(total_dur, float(seg["end"]))
         if en <= st:
             continue
         col = TEXT_COLORS[idx % len(TEXT_COLORS)]
-        txt_esc = escape_ff_text(p["text"])
+        txt_esc = escape_ff_text(seg["text"])
         if not txt_esc:
             continue
-        # Subtle horizontal drift + color change per phrase
-        x_expr = f"max(60\\, min(w-tw-60\\, (w-tw)/2 + 35*sin((t-{st:.2f})*2.2)))"
-        y_expr = "h-125"
+
+        # Smooth moving motion across bottom bar during this exact phrase window
+        dur_s = max(0.1, en - st)
+        x_expr = f"max(80\\, min(w-tw-80\\, (w-tw)/2 + 65*sin(((t-{st:.2f})/{dur_s:.2f})*3.14159)))"
+        y_expr = "h-145"
         filter_parts.append(
             f"drawtext=fontfile='{font_str}':text='{txt_esc}':"
-            f"fontcolor={col}:fontsize=48:borderw=3:bordercolor=black@0.9:"
+            f"fontcolor={col}:fontsize=74:borderw=5:bordercolor=black@0.95:"
+            f"shadowcolor=black@0.85:shadowx=3:shadowy=3:"
             f"x={x_expr}:y={y_expr}:enable='between(t,{st:.2f},{en:.2f})'"
         )
 
-    # Subscribe + Bell icon pop-ups (3 times during the long video)
-    popup_windows = [(38.0, 45.0), (102.0, 109.0), (155.0, 162.0)]
+    # Bold Subscribe + Bell icon pop-up (box and text share exact same x/y coordinates)
+    popup_windows = [(40.0, 47.0), (105.0, 112.0), (155.0, 162.0)]
+    box_w, box_h = 620, 104
+    bell_text = escape_ff_text("🔔 SUBSCRIBE & BELL")
     for p_start, p_end in popup_windows:
         if p_start + 1.0 < total_dur:
             p_end_c = min(p_end, max(p_start + 1.0, total_dur - 0.5))
-            # Slide in from right and stay visible on top-right
-            box_x = f"if(lt(t-{p_start:.2f},0.45), w - ((t-{p_start:.2f})/0.45)*520, w-520)"
-            filter_parts.append(
-                f"drawbox=x='{box_x}':y=42:w=470:h=82:color=0xC62828@0.92:t=fill:"
-                f"enable='between(t,{p_start:.2f},{p_end_c:.2f})'"
+            # Slide in from right edge to (w - box_w - 50), then pulse slightly
+            x_box_expr = (
+                f"if(lt(t-{p_start:.2f},0.4), "
+                f"w - ((t-{p_start:.2f})/0.4)*({box_w}+50), "
+                f"w-{box_w}-50 + 8*sin((t-{p_start:.2f})*8))"
             )
-            txt_x = f"if(lt(t-{p_start:.2f},0.45), w - ((t-{p_start:.2f})/0.45)*520 + 28, w-492)"
-            bell_label = escape_ff_text("🔔 Subscribe & Bell Press Karein")
+            y_box_expr = "46"
             filter_parts.append(
-                f"drawtext=fontfile='{font_str}':text='{bell_label}':"
-                f"fontcolor=0xFFF59D:fontsize=30:borderw=2:bordercolor=black@0.85:"
-                f"x='{txt_x}':y=66:enable='between(t,{p_start:.2f},{p_end_c:.2f})'"
+                f"drawbox=x='{x_box_expr}':y='{y_box_expr}':w={box_w}:h={box_h}:"
+                f"color=0xDC2626@0.96:t=fill:enable='between(t,{p_start:.2f},{p_end_c:.2f})'"
+            )
+            filter_parts.append(
+                f"drawbox=x='{x_box_expr}':y='{y_box_expr}':w={box_w}:h={box_h}:"
+                f"color=white@0.9:t=4:enable='between(t,{p_start:.2f},{p_end_c:.2f})'"
+            )
+            x_txt_expr = f"({x_box_expr}) + 32"
+            y_txt_expr = f"({y_box_expr}) + 24"
+            filter_parts.append(
+                f"drawtext=fontfile='{font_str}':text='{bell_text}':"
+                f"fontcolor=0xFDE047:fontsize=46:borderw=4:bordercolor=black@0.95:"
+                f"x='{x_txt_expr}':y='{y_txt_expr}':enable='between(t,{p_start:.2f},{p_end_c:.2f})'"
             )
 
     script_file = work / "vf_chain.txt"
@@ -469,9 +495,9 @@ def apply_captions_and_popups(
             "-c:v",
             "libx264",
             "-preset",
-            "ultrafast",
+            "veryfast",
             "-crf",
-            "22",
+            "23",
             "-pix_fmt",
             "yuv420p",
             str(output_video),
@@ -529,6 +555,51 @@ def prepare_soft_bg_audio(voice_wav: Path, dur: float, work: Path) -> Path:
     return voice_wav
 
 
+def create_clean_thumbnail(first_clip: Path, title: str, font_path: Path, work: Path) -> None:
+    base_png = work / "thumb_raw.png"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(first_clip),
+            "-ss",
+            "0.5",
+            "-vframes",
+            "1",
+            "-vf",
+            "scale=1280:720,eq=contrast=1.15:brightness=-0.05",
+            str(base_png),
+        ],
+        check=False,
+    )
+    if not base_png.exists() or base_png.stat().st_size < 2000:
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0x0b1021:s=1280x720", "-vframes", "1", str(base_png)],
+            check=True,
+        )
+
+    font_str = str(font_path.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\u2019")
+    thumb_txt = escape_ff_text(title[:45])
+    res = subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(base_png),
+            "-vf",
+            f"drawbox=x=0:y=ih-150:w=iw:h=150:color=black@0.75:t=fill,"
+            f"drawtext=fontfile='{font_str}':text='{thumb_txt}':fontcolor=0xFFD60A:fontsize=54:"
+            f"borderw=4:bordercolor=black@0.95:x=(w-tw)/2:y=h-108",
+            "-q:v",
+            "2",
+            str(OUTPUT_THUMBNAIL),
+        ]
+    )
+    if res.returncode != 0 or not OUTPUT_THUMBNAIL.exists():
+        subprocess.run(["ffmpeg", "-y", "-i", str(base_png), "-q:v", "2", str(OUTPUT_THUMBNAIL)], check=False)
+
+
 def main() -> None:
     work = Path("build_long_assets")
     work.mkdir(exist_ok=True)
@@ -543,7 +614,7 @@ def main() -> None:
 
     mp3 = work / "voice.mp3"
     wav = work / "voice.wav"
-    phrases = asyncio.run(make_tts_and_boundaries(story_text, mp3))
+    grouped_starts = asyncio.run(make_tts_and_word_chunks(story_text, mp3))
 
     subprocess.run(
         ["ffmpeg", "-y", "-i", str(mp3), "-ar", "44100", "-ac", "1", str(wav)],
@@ -557,10 +628,8 @@ def main() -> None:
             "Story length needs to be longer so narration itself is 3+ minutes."
         )
 
-    if not phrases:
-        phrases = build_fallback_phrases(story_text, actual_voice_dur)
-
-    print(f"Exact story narration duration: {actual_voice_dur:.1f}s | Caption phrases: {len(phrases)}")
+    segments = build_sequential_segments(grouped_starts, story_text, actual_voice_dur)
+    print(f"Exact story narration duration: {actual_voice_dur:.1f}s | Non-overlapping segments: {len(segments)}")
 
     each_dur = round(actual_voice_dur / TARGET_CLIPS, 2)
     used_urls: set[str] = set()
@@ -581,7 +650,7 @@ def main() -> None:
     )
 
     styled_video = work / "styled_video.mp4"
-    video_source = apply_captions_and_popups(merged, styled_video, phrases, font_path, actual_voice_dur, work)
+    video_source = apply_captions_and_popups(merged, styled_video, segments, font_path, actual_voice_dur, work)
     audio_source = prepare_soft_bg_audio(wav, actual_voice_dur, work)
 
     subprocess.run(
@@ -608,17 +677,14 @@ def main() -> None:
         check=True,
     )
 
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", str(clips[0]), "-vframes", "1", str(OUTPUT_THUMBNAIL)],
-        check=False,
-    )
+    create_clean_thumbnail(clips[0], title, font_path, work)
 
     meta = {
         "title": title,
         "description": story_text + "\n\n#Storybox #IslamicStory #UrduWaqiat #IslamicReminder",
         "tags": tags,
-        "thumbnail_path": str(OUTPUT_THUMBNAIL),
-        "video_path": str(OUTPUT_VIDEO),
+        "thumbnail_path": str(OUTPUT_THUMBNAIL.resolve()),
+        "video_path": str(OUTPUT_VIDEO.resolve()),
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -628,7 +694,7 @@ def main() -> None:
         json.dumps({"last_title": title, "last_topic": topic, "recent_titles": prev[-8:]}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"Generated 1920x1080 {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with live colored text & pop-ups.")
+    print(f"Generated 1920x1080 {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with bold captions, pop-ups & thumbnail.")
 
 
 if __name__ == "__main__":
