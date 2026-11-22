@@ -14,7 +14,7 @@ OUTPUT_META = Path("long_meta.json")
 OUTPUT_THUMBNAIL = Path("long_thumbnail.jpg")
 HISTORY_FILE = Path("islamic_long_history.json")
 
-MIN_STORY_SEC = 185.0  # ~3m 05s
+MIN_STORY_SEC = 180.0  # Full 3+ minutes of natural story narration
 TARGET_CLIPS = 32
 
 PROPHET_TOPICS = [
@@ -41,7 +41,6 @@ DEFAULT_SCENE_QUERIES = [
     "clear sky clouds",
 ]
 
-# ASS BGR hex colors (&H00BBGGRR&) for lively, readable highlights
 CAPTION_ACCENTS = [
     "&H0000FFFF&",  # Golden Yellow
     "&H007CFF00&",  # Soft Mint/Lime
@@ -105,43 +104,12 @@ def list_gemini_models(api_key: str) -> list[str]:
     return []
 
 
-def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list[str]]:
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is missing in environment/secrets.")
-
-    topic = random.choice(PROPHET_TOPICS)
-    nonce = random.randint(10000, 99999)
-
-    prompt = (
-        f"Run #{nonce}. Auto-generate a complete, deeply engaging, and dramatic Urdu story about an interesting "
-        f"episode from the life of a Prophet ({topic}).\n"
-        "Strict instructions:\n"
-        "- Write ONLY in natural spoken Urdu script (اردو رسم الخط), with zero English or Roman words in story_text or title.\n"
-        "- Make it a full, continuous ~3.3-minute narration: around 470 to 550 Urdu words, with a complete beginning, rising tension, turning point, resolution, and final moral ending.\n"
-        "- Do not use bullet points or markdown inside story_text; write smooth flowing Urdu prose ready for voiceover.\n"
-        "- Also provide 12 short English horizontal stock video search queries (2-3 words each) in queries matching the scenes of the story.\n"
-        "Return ONLY valid JSON in this exact structure:\n"
-        "{\n"
-        '  "title": "دلچسپ اردو عنوان",\n'
-        '  "story_text": "مکمل طویل اردو کہانی یہاں",\n'
-        '  "tags": ["نبیوں کے واقعات", "Islamic Story Urdu", "Urdu Waqiat", "Storybox"],\n'
-        '  "queries": ["ancient desert dunes wide", "sunrise over mountain horizon"]\n'
-        "}"
-    )
-
+def _call_gemini_raw(api_key: str, prompt: str, models: list[str]) -> str:
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.95},
     }
-
     enc_key = urllib.parse.quote(api_key)
-    models = list_gemini_models(api_key) or [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-flash-latest",
-        "gemini-1.5-flash",
-    ]
-
     urls: list[str] = []
     for mid in models:
         urls.append(f"https://generativelanguage.googleapis.com/v1beta/models/{mid}:generateContent?key={enc_key}")
@@ -157,7 +125,7 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=50) as resp:
+            with urllib.request.urlopen(req, timeout=55) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
                 break
         except Exception as e:
@@ -167,33 +135,90 @@ def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list
         raise RuntimeError(f"Gemini request failed: {last_err}")
 
     parts = payload.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-    raw_out = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
-    parsed = extract_json(raw_out)
-    if not parsed:
-        raise RuntimeError("Gemini did not return valid JSON for Prophet story.")
+    return "".join(p.get("text", "") for p in parts if isinstance(p, dict))
 
-    story_text = str(parsed.get("story_text") or "").strip()
-    title = str(parsed.get("title") or "نبی کا ایک دلچسپ اور ایمان افروز واقعہ").strip()[:95]
-    raw_tags = parsed.get("tags")
+
+def auto_generate_prophet_story(api_key: str) -> tuple[str, str, list[str], list[str]]:
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is missing in environment/secrets.")
+
+    topic = random.choice(PROPHET_TOPICS)
+    nonce = random.randint(10000, 99999)
+    models = list_gemini_models(api_key) or [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-flash-latest",
+        "gemini-1.5-flash",
+    ]
+
+    prompt_part1 = (
+        f"Run #{nonce} Part 1. Auto-generate the FIRST HALF of a vivid, dramatic, and deeply engaging Urdu story "
+        f"about an interesting episode from the life of a Prophet ({topic}).\n"
+        "Strict instructions:\n"
+        "- Write ONLY in natural spoken Urdu script (اردو رسم الخط), with zero English or Roman words in story_part1 or title.\n"
+        "- Write around 360 to 420 Urdu words for Part 1 (setting, characters, beginning, and rising tension), ending cleanly without cutting off mid-sentence.\n"
+        "- Do not use bullet points or markdown inside story_part1; write smooth flowing Urdu prose ready for voiceover.\n"
+        "- Provide 12 short English horizontal stock video search queries (2-3 words each) in queries.\n"
+        "Return ONLY valid JSON:\n"
+        "{\n"
+        '  "title": "دلچسپ اردو عنوان",\n'
+        '  "story_part1": "پہلا حصہ یہاں",\n'
+        '  "tags": ["نبیوں کے واقعات", "Islamic Story Urdu", "Urdu Waqiat", "Storybox"],\n'
+        '  "queries": ["ancient desert dunes wide", "sunrise over mountain horizon"]\n'
+        "}"
+    )
+
+    raw1 = _call_gemini_raw(api_key, prompt_part1, models)
+    parsed1 = extract_json(raw1)
+    if not parsed1:
+        raise RuntimeError("Gemini did not return valid JSON for Prophet story Part 1.")
+
+    part1 = str(parsed1.get("story_part1") or "").strip()
+    title = str(parsed1.get("title") or "نبی کا ایک دلچسپ اور ایمان افروز واقعہ").strip()[:95]
+    raw_tags = parsed1.get("tags")
     tags = [str(t).strip() for t in raw_tags if str(t).strip()][:15] if isinstance(raw_tags, list) else []
     if not tags:
         tags = ["نبیوں کے واقعات", "Islamic Story Urdu", "Urdu Waqiat", "Storybox"]
 
-    raw_q = parsed.get("queries")
+    raw_q = parsed1.get("queries")
     queries = [str(q).strip() for q in raw_q if str(q).strip()][:16] if isinstance(raw_q, list) else []
     if len(queries) < 6:
         queries = DEFAULT_SCENE_QUERIES
 
-    if len(story_text.split()) < 150:
-        raise RuntimeError("Generated story is too short for 3+ minute long video.")
+    prompt_part2 = (
+        f"Run #{nonce} Part 2. Continue and COMPLETE the exact same Urdu story to its full dramatic climax, resolution, "
+        f"and heartfelt moral lesson.\n"
+        f"Story Title: {title}\n"
+        f"Part 1 ending context: {part1[-450:]}\n"
+        "Strict instructions:\n"
+        "- Write ONLY in natural spoken Urdu script (اردو رسم الخط), with zero English or Roman words in story_part2.\n"
+        "- Write around 340 to 400 Urdu words for Part 2 so the combined story is ~700+ Urdu words (full 3+ minute voiceover).\n"
+        "- Do not use bullet points or markdown inside story_part2; write smooth flowing Urdu prose.\n"
+        "Return ONLY valid JSON:\n"
+        "{\n"
+        '  "story_part2": "دوسرا اور مکمل اختتامی حصہ یہاں"\n'
+        "}"
+    )
 
-    print(f"Auto-generated story '{title}' ({len(story_text.split())} words) on topic: {topic}")
-    return title, story_text, tags, queries
+    raw2 = _call_gemini_raw(api_key, prompt_part2, models)
+    parsed2 = extract_json(raw2)
+    part2 = str((parsed2 or {}).get("story_part2") or "").strip()
+    if not part2:
+        # Fallback if JSON wasn't wrapped in braces on part 2
+        part2 = re.sub(r"```(?:json)?|```", "", raw2).strip()
+
+    full_story = f"{part1} {part2}".strip()
+    word_count = len(full_story.split())
+    if word_count < 220:
+        raise RuntimeError(f"Generated story too short ({word_count} words).")
+
+    print(f"Auto-generated story '{title}' ({word_count} words) on topic: {topic}")
+    return title, full_story, tags, queries
 
 
 async def make_tts_and_boundaries(text: str, mp3_path: Path) -> list[dict]:
     voice = os.getenv("EDGE_TTS_VOICE", "").strip() or "ur-PK-AsadNeural"
-    communicate = edge_tts.Communicate(text=text, voice=voice, rate="-4%")
+    communicate = edge_tts.Communicate(text=text, voice=voice, rate="-6%")
     word_events: list[tuple[float, float, str]] = []
 
     with open(mp3_path, "wb") as out:
@@ -249,7 +274,6 @@ def write_ass_captions_and_popups(
     phrases: list[dict],
     total_dur: float,
 ) -> None:
-    # Font family available on ubuntu-latest with fonts-noto-core
     font_family = "Noto Sans"
     header = (
         "[Script Info]\n"
@@ -277,15 +301,13 @@ def write_ass_captions_and_popups(
         clean_txt = re.sub(r"[{}]", "", p["text"]).strip()
         if not clean_txt:
             continue
-        # Animated pop-in + colorful highlight + smooth fade
         styled = (
             f"{{\\fad(120,120)\\fscx88\\fscy88\\t(0,140,\\fscx104\\fscy104)"
             f"\\t(140,240,\\fscx100\\fscy100)\\1c{accent}}}{clean_txt}"
         )
         lines.append(f"Dialogue: 0,{st},{en},Caption,,0,0,0,,{styled}")
 
-    # Subscribe + Bell pop-up intervals (e.g., around 45s, 110s, 165s if within story duration)
-    popup_windows = [(42.0, 48.5), (108.0, 114.5), (162.0, 168.5)]
+    popup_windows = [(45.0, 51.5), (110.0, 116.5), (162.0, 168.5)]
     for p_start, p_end in popup_windows:
         if p_start + 1.0 < total_dur:
             actual_end = min(p_end, max(p_start + 1.0, total_dur - 0.5))
@@ -329,7 +351,6 @@ def make_color_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_urls: set[str]) -> Path:
-    # Gentle slow pan/zoom motion on 1920x1080 landscape
     if idx % 2 == 0:
         vf = (
             "scale=2048:1152:force_original_aspect_ratio=increase,"
@@ -354,7 +375,7 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
                 data = json.loads(resp.read().decode("utf-8"))
             for hit in data.get("hits", []):
                 vids = hit.get("videos", {})
-                for k in ("medium", "large", "small", "tiny"):
+                for k in ("medium", "small", "large", "tiny"):
                     link = (vids.get(k) or {}).get("url")
                     if link and link not in used_urls:
                         used_urls.add(link)
@@ -399,7 +420,6 @@ def build_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_
 def prepare_soft_bg_audio(voice_wav: Path, dur: float, work: Path) -> Path:
     bg_wav = work / "soft_bg.wav"
     mixed_wav = work / "final_mix.wav"
-    # Soft ambient synth pad (low volume so voice stays 100% clear)
     fade_out_at = max(1.0, dur - 2.5)
     bg_res = subprocess.run(
         [
