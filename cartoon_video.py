@@ -23,6 +23,15 @@ def _find_font_path() -> str | None:
   return None
 
 
+def _auto_audio_filter(duration_sec: int, scene_idx: int) -> str:
+  # Auto-generated soft rhythmic/chime bed at low volume (no external file needed)
+  base_freq = 220 + (scene_idx % 4) * 55
+  return (
+      f"sine=frequency={base_freq}:sample_rate=44100:duration={duration_sec},"
+      f"tremolo=f=3.5:d=0.6,volume=0.04,aformat=channel_layouts=stereo"
+  )
+
+
 def _render_scene_clip(
     image_path: str,
     duration_sec: int,
@@ -37,7 +46,6 @@ def _render_scene_clip(
     return False
 
   total_frames = max(int(duration_sec * fps), fps * 2)
-  # Alternate zoom in / pan across scenes for lively motion
   if scene_idx % 2 == 0:
     zp = (
         f"zoompan=z='min(zoom+0.0012,1.25)'"
@@ -70,6 +78,8 @@ def _render_scene_clip(
     filters.append(draw)
 
   vf = ",".join(filters)
+  af = _auto_audio_filter(duration_sec, scene_idx)
+
   cmd = [
       "ffmpeg",
       "-y",
@@ -80,7 +90,7 @@ def _render_scene_clip(
       "-f",
       "lavfi",
       "-i",
-      f"anullsrc=r=44100:cl=stereo:d={duration_sec}",
+      af,
       "-vf",
       vf,
       "-t",
