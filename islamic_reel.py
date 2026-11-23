@@ -6,7 +6,6 @@ import re
 import subprocess
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 import edge_tts
 
@@ -29,11 +28,11 @@ SHORT_TOPICS = [
 ]
 
 TEXT_COLORS = [
-    "0xFFD60A",  # Bold Gold
-    "0x4ADE80",  # Bright Green
-    "0x38BDF8",  # Bright Sky Blue
-    "0xFB923C",  # Bold Orange
-    "0xFFFFFF",  # Pure White
+    "0xFFD60A",
+    "0x4ADE80",
+    "0x38BDF8",
+    "0xFB923C",
+    "0xFFFFFF",
 ]
 
 FONT_URLS = [
@@ -83,7 +82,7 @@ def _list_models(api_key: str) -> list[str]:
 def _call_gemini(api_key: str, prompt: str, models: list[str]) -> str:
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 1.05},
+        "generationConfig": {"temperature": 1.0},
     }
     enc_key = urllib.parse.quote(api_key)
     urls: list[str] = []
@@ -114,7 +113,9 @@ def _call_gemini(api_key: str, prompt: str, models: list[str]) -> str:
 def _clean_title(raw_title: str, fallback_topic: str) -> str:
     cleaned = re.sub(r"[“”\"'`#]+", "", (raw_title or "").strip())
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" -:،۔")
-    return (cleaned[:95] or fallback_topic[:95]).strip()
+    if not cleaned or "daily reminder" in cleaned.lower():
+        return fallback_topic[:95].strip()
+    return cleaned[:95].strip()
 
 
 def generate_fresh_short_story(api_key: str) -> dict:
@@ -125,16 +126,16 @@ def generate_fresh_short_story(api_key: str) -> dict:
     models = _list_models(key)
     topic = random.choice(SHORT_TOPICS)
     nonce = random.randint(100000, 999999)
-    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     prompt = (
-        f"Time: {now_iso} | Run #{nonce}.\n"
+        f"Run #{nonce}.\n"
         f"Write a complete ~40-50 second Urdu YouTube Short/Reel story on:\n"
         f"Topic: {topic}\n\n"
         "Rules:\n"
-        "- 'title' MUST represent the ENTIRE story/reel from start to finish (its core event and final takeaway)—NOT just a teaser word or opening line.\n"
-        "- Write ~115-135 natural spoken Urdu words in 'narration' with a clear beginning, main event, and ending lesson.\n"
-        "- Write ONLY in natural spoken Urdu script (اردو رسم الخط), smooth voiceover prose, no bullets or markdown.\n"
+        "- 'title' MUST represent the ENTIRE story/reel from start to finish in natural Urdu script (اردو رسم الخط).\n"
+        "- Do NOT write 'Daily reminder' or any date in 'title'.\n"
+        "- Write ~115-135 natural spoken Urdu words in 'narration' with clear beginning, main event, and ending lesson.\n"
+        "- Write ONLY in natural spoken Urdu script, smooth voiceover prose, no bullets or markdown.\n"
         "- Provide 4 short 2-3 word English stock video queries in 'queries'.\n\n"
         "Return ONLY valid JSON:\n"
         "{\n"
@@ -150,7 +151,7 @@ def generate_fresh_short_story(api_key: str) -> dict:
     if not parsed:
         raise RuntimeError("Gemini did not return valid JSON for Short story.")
 
-    narration = str(parsed.get("narration") or "").strip()
+    narration = re.sub(r"\s+", " ", str(parsed.get("narration") or "").strip())
     if len(narration.split()) < 60:
         raise RuntimeError("Generated Short narration is too short.")
 
@@ -166,7 +167,7 @@ def generate_fresh_short_story(api_key: str) -> dict:
     if not queries:
         queries = ["desert sunset sky", "quiet night stars", "flowing river light", "open book pages"]
 
-    print(f"Full-reel title: '{title}' ({len(narration.split())} words)")
+    print(f"Short Title: {title}")
     return {
         "id": f"short_{nonce}",
         "title": title,
@@ -229,51 +230,23 @@ def escape_ff_text(txt: str) -> str:
     return cleaned
 
 
-async def make_tts_and_chunks(text: str, mp3_path: Path) -> list[tuple[float, str]]:
+async def save_clean_voice(text: str, mp3_path: Path) -> None:
     voice = os.getenv("EDGE_TTS_VOICE", "").strip() or "ur-PK-AsadNeural"
-    communicate = edge_tts.Communicate(text=text, voice=voice, rate="-4%")
-    starts_and_words: list[tuple[float, str]] = []
-
-    with open(mp3_path, "wb") as out:
-        async for chunk in communicate.stream():
-            ctype = chunk.get("type")
-            if ctype == "audio":
-                out.write(chunk["data"])
-            elif ctype == "WordBoundary":
-                offset_s = float(chunk.get("offset", 0)) / 10_000_000.0
-                word = str(chunk.get("text") or "").strip()
-                if word:
-                    starts_and_words.append((offset_s, word))
-
-    grouped: list[tuple[float, str]] = []
-    for i in range(0, len(starts_and_words), 3):
-        grp = starts_and_words[i : i + 3]
-        phrase = " ".join(w for _, w in grp).strip()
-        if phrase:
-            grouped.append((round(grp[0][0], 2), phrase))
-    return grouped
+    await edge_tts.Communicate(text=text, voice=voice).save(str(mp3_path))
 
 
-def build_sequential_segments(
-    grouped_starts: list[tuple[float, str]],
-    story_text: str,
-    total_dur: float,
-) -> list[dict]:
-    if not grouped_starts:
-        words = [w for w in re.split(r"\s+", story_text.strip()) if w]
-        chunks = [" ".join(words[i : i + 3]) for i in range(0, len(words), 3)] or ["مکمل کہانی"]
-        step = total_dur / len(chunks)
-        grouped_starts = [(round(i * step, 2), ch) for i, ch in enumerate(chunks)]
-
+def build_segments(story_text: str, total_dur: float) -> list[dict]:
+    words = [w for w in re.split(r"\s+", story_text.strip()) if w]
+    if not words:
+        return [{"start": 0.0, "end": total_dur, "text": "مکمل کہانی"}]
+    chunks = [" ".join(words[i : i + 3]) for i in range(0, len(words), 3)]
+    step = total_dur / len(chunks)
     segments: list[dict] = []
-    for idx, (st, phrase) in enumerate(grouped_starts):
-        st_c = max(0.0, min(st, max(0.0, total_dur - 0.15)))
-        if idx + 1 < len(grouped_starts):
-            en_c = max(st_c + 0.12, min(grouped_starts[idx + 1][0], total_dur))
-        else:
-            en_c = total_dur
-        if en_c > st_c + 0.05:
-            segments.append({"start": round(st_c, 2), "end": round(en_c, 2), "text": phrase})
+    for idx, ch in enumerate(chunks):
+        st = round(idx * step, 2)
+        en = round(total_dur if idx == len(chunks) - 1 else (idx + 1) * step, 2)
+        if en > st + 0.05:
+            segments.append({"start": st, "end": en, "text": ch})
     return segments
 
 
@@ -303,19 +276,10 @@ def make_color_clip(dest: Path, dur: float, idx: int) -> None:
 
 
 def build_short_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_urls: set[str]) -> Path:
-    if idx % 2 == 0:
-        vf = (
-            "scale=1188:2112:force_original_aspect_ratio=increase,"
-            "crop=w=1080:h=1920:x='(iw-ow)/2+((iw-ow)*0.45)*sin(t*0.45)':y='(ih-oh)/2',"
-            "eq=contrast=1.08:saturation=1.14,fps=30,format=yuv420p"
-        )
-    else:
-        vf = (
-            "scale=1188:2112:force_original_aspect_ratio=increase,"
-            "crop=w=1080:h=1920:x='(iw-ow)/2':y='(ih-oh)/2+((ih-oh)*0.45)*cos(t*0.45)',"
-            "eq=contrast=1.08:saturation=1.14,fps=30,format=yuv420p"
-        )
-
+    vf = (
+        "scale=1080:1920:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,eq=contrast=1.06:saturation=1.1,fps=30,format=yuv420p"
+    )
     if api_key:
         url = (
             f"https://pixabay.com/api/videos/?key={urllib.parse.quote(api_key)}"
@@ -459,26 +423,10 @@ def main() -> None:
     queries = story["queries"]
 
     mp3 = work / "short_voice.mp3"
-    wav = work / "short_voice.wav"
-    grouped = asyncio.run(make_tts_and_chunks(narration, mp3))
+    asyncio.run(save_clean_voice(narration, mp3))
+    dur = get_dur(mp3)
 
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", str(mp3), "-ar", "44100", "-ac", "1", str(wav)],
-        check=True,
-    )
-
-    dur = get_dur(wav)
-    if dur < MIN_SHORT_SEC:
-        pad = round(MIN_SHORT_SEC - dur + 0.5, 2)
-        pw = work / "short_voice_pad.wav"
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", str(wav), "-af", f"apad=pad_dur={pad}", "-ar", "44100", "-ac", "1", str(pw)],
-            check=True,
-        )
-        pw.replace(wav)
-        dur = get_dur(wav)
-
-    segments = build_sequential_segments(grouped, narration, dur)
+    segments = build_segments(narration, dur)
     each_dur = round(dur / TARGET_CLIPS, 2)
     used_urls: set[str] = set()
     clips: list[Path] = []
@@ -506,7 +454,7 @@ def main() -> None:
             "-i",
             str(v_src),
             "-i",
-            str(wav),
+            str(mp3),
             "-map",
             "0:v:0",
             "-map",
