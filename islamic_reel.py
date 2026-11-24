@@ -8,10 +8,8 @@ import requests
 
 try:
   from google import genai
-  from google.genai import types
 except ImportError:
   genai = None
-  types = None
 
 
 def _clean_text(text: str, max_len: int = 120) -> str:
@@ -185,14 +183,18 @@ Each object must contain:
 def _download_image_for_clip(
     visual_query: str, out_path: str, idx: int
 ) -> bool:
+  clean_q = re.sub(r"[^A-Za-z0-9 ,-]", " ", visual_query or "calm sky")
+  clean_q = re.sub(r"\s+", " ", clean_q).strip() or "calm sky"
+
   pixabay_key = os.environ.get("PIXABAY_API_KEY", "").strip()
   if pixabay_key:
     try:
+      pixabay_url = "[https://pixabay.com/api/](https://pixabay.com/api/)"
       resp = requests.get(
-          "[https://pixabay.com/api/](https://pixabay.com/api/)",
+          pixabay_url,
           params={
               "key": pixabay_key,
-              "q": visual_query[:80],
+              "q": clean_q[:80],
               "image_type": "photo",
               "per_page": 5,
               "safesearch": "true",
@@ -204,8 +206,8 @@ def _download_image_for_clip(
       if hits:
         hit = hits[idx % len(hits)]
         img_url = hit.get("largeImageURL") or hit.get("webformatURL")
-        if img_url:
-          img_resp = requests.get(img_url, timeout=25)
+        if isinstance(img_url, str) and img_url.startswith("http"):
+          img_resp = requests.get(img_url.strip(), timeout=25)
           img_resp.raise_for_status()
           with open(out_path, "wb") as f:
             f.write(img_resp.content)
@@ -215,7 +217,7 @@ def _download_image_for_clip(
       print(f"Pixabay image error ({out_path}): {exc}")
 
   try:
-    safe_q = quote(visual_query[:60] or "calm nature sky")
+    safe_q = quote(clean_q[:60])
     pollinations_url = (
         f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_q}"
         "?width=1080&height=1920&nologo=true"
@@ -325,7 +327,7 @@ def _render_clip(
 
 def build_reel(
     topic: str,
-    out_path: str = "islamic_reel_out.mp4",
+    out_path: str = "final_islamic_short.mp4",
     temp_dir: str = "reel_temp",
 ) -> str | None:
   if not shutil.which("ffmpeg"):
@@ -385,7 +387,11 @@ def build_reel(
     print(f"Final concat error: {res.stderr[-400:]}")
     return None
 
-  return out_path if os.path.exists(out_path) else None
+  if os.path.exists(out_path):
+    shutil.copyfile(out_path, "islamic_reel_out.mp4")
+    return out_path
+
+  return None
 
 
 if __name__ == "__main__":
@@ -393,5 +399,5 @@ if __name__ == "__main__":
       "CARTOON_TOPIC",
       "Aakhri zamana ki nishaniyan, fitne aur imaan bachane ki ahmiyat",
   )
-  output = build_reel(topic)
+  output = build_reel(topic, out_path="final_islamic_short.mp4")
   print("Output:", output)
