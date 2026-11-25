@@ -11,18 +11,22 @@ import edge_tts
 
 OUTPUT_VIDEO = Path("final_islamic_short.mp4")
 OUTPUT_META = Path("short_meta.json")
-TARGET_CLIPS = 12
-MIN_SHORT_SEC = 32.0
+TARGET_CLIPS = 1
 
 AKHRI_ZAMANA_TOPICS = [
     "Aakhri zamana mein fitnon ke waqt imaan aur sabr bachane ka sabaq",
-    "Dajjal ke fitne se bachne ke liye ahadith mein aayi rehnumai aur dua",
-    "Aakhri zamana mein waqt ki tezi aur ghafil na hone ka paigham",
+    "Rishton, amanat aur zuban ki hifazat ka aakhri zamana mein paigham",
+    "Aakhri zamana mein waqt ki tezi aur ghafil na hone ka sabaq",
     "Aakhri zamana mein ilm uthne aur sachai par qaim rehne ka sabaq",
     "Aakhri zamana ki aazmaishon mein tawakkul aur istighfar ki ahmiyat",
-    "Aakhri zamana mein rishton, amanat aur zuban ki hifazat ka sabaq",
     "Aakhri zamana mein namaz aur zikr se dil ko mazboot rakhne ka paigham",
-    "Aakhri zamana ke halaat mein hidayat aur sachi tawbah ka waqia o sabaq",
+]
+
+SPACE_QUERIES = [
+    "outer space stars",
+    "galaxy nebula space",
+    "planet earth space",
+    "moon stars night",
 ]
 
 HUMAN_VOICES = [
@@ -31,11 +35,10 @@ HUMAN_VOICES = [
 ]
 
 TEXT_COLORS = [
-    "0xFFD60A",
-    "0x4ADE80",
-    "0x38BDF8",
-    "0xFB923C",
-    "0xFFFFFF",
+    "0x0F172A",
+    "0x0B3B60",
+    "0x14532D",
+    "0x7C2D12",
 ]
 
 FONT_URLS = [
@@ -85,7 +88,7 @@ def _list_models(api_key: str) -> list[str]:
 def _call_gemini(api_key: str, prompt: str, models: list[str]) -> str:
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 1.0},
+        "generationConfig": {"temperature": 0.9},
     }
     enc_key = urllib.parse.quote(api_key)
     urls: list[str] = []
@@ -110,7 +113,7 @@ def _call_gemini(api_key: str, prompt: str, models: list[str]) -> str:
                 return txt
         except Exception as e:
             last_err = e
-    raise RuntimeError(f"Gemini Aakhri Zamana Short failed: {last_err}")
+    raise RuntimeError(f"Gemini Short generation failed: {last_err}")
 
 
 def _clean_title(raw_title: str, fallback_topic: str) -> str:
@@ -121,7 +124,7 @@ def _clean_title(raw_title: str, fallback_topic: str) -> str:
     return cleaned[:95].strip()
 
 
-def generate_akhri_zamana_short(api_key: str) -> dict:
+def generate_short_story(api_key: str) -> dict:
     key = (api_key or "").strip()
     if not key:
         raise RuntimeError("GEMINI_API_KEY is required.")
@@ -132,31 +135,31 @@ def generate_akhri_zamana_short(api_key: str) -> dict:
 
     prompt = (
         f"Run #{nonce}.\n"
-        f"Write a complete ~40-50 second Urdu YouTube Short/Reel script strictly about Aakhri Zamana (end times in Islam):\n"
-        f"Focus: {topic}\n\n"
+        f"Write a ~40-50 second Urdu YouTube Short/Reel story on:\n"
+        f"Topic: {topic}\n\n"
         "Rules:\n"
-        "- 'title' MUST capture the whole Aakhri Zamana message/short in natural Urdu script (اردو رسم الخط).\n"
+        "- 'title' MUST represent the whole Short in natural Urdu script (اردو رسم الخط).\n"
         "- Do NOT write 'Daily reminder' or any date in 'title'.\n"
-        "- Write ~115-135 natural spoken Urdu words in 'narration' with calm, human storytelling tone, clear flow, and an impactful ending lesson.\n"
-        "- Write ONLY in natural spoken Urdu script, smooth voiceover prose, no bullets or markdown.\n"
-        "- Provide 4 short 2-3 word English stock video queries in 'queries' matching Aakhri Zamana / reflection / night / sky / light.\n\n"
+        "- Write ~115-135 natural spoken Urdu words in 'narration' with clear beginning, middle, and ending lesson.\n"
+        "- Write ONLY natural spoken Urdu prose, no bullets or markdown.\n"
+        "- Provide 1 primary English space query in 'query' (e.g. 'outer space stars').\n\n"
         "Return ONLY valid JSON:\n"
         "{\n"
-        '  "title": "آخری زمانے سے متعلق مکمل اردو عنوان",\n'
-        '  "narration": "آخری زمانے پر مکمل اور پرسکون اردو بیان",\n'
+        '  "title": "مکمل اردو عنوان",\n'
+        '  "narration": "مکمل اردو بیان",\n'
         '  "tags": ["آخری زمانہ", "Aakhri Zamana", "Islamic Shorts", "Urdu Bayan"],\n'
-        '  "queries": ["dark storm sky", "glowing lantern night", "starry desert horizon", "open quran book"]\n'
+        '  "query": "outer space stars"\n'
         "}"
     )
 
     raw = _call_gemini(key, prompt, models)
     parsed = _extract_json(raw)
     if not parsed:
-        raise RuntimeError("Gemini did not return valid JSON for Aakhri Zamana Short.")
+        raise RuntimeError("Gemini did not return valid JSON.")
 
     narration = re.sub(r"\s+", " ", str(parsed.get("narration") or "").strip())
     if len(narration.split()) < 60:
-        raise RuntimeError("Generated Aakhri Zamana narration is too short.")
+        raise RuntimeError("Generated narration is too short.")
 
     title = _clean_title(str(parsed.get("title") or ""), topic)
 
@@ -165,14 +168,12 @@ def generate_akhri_zamana_short(api_key: str) -> dict:
     if not tags:
         tags = ["آخری زمانہ", "Aakhri Zamana", "Islamic Shorts", "Urdu Bayan"]
 
-    raw_q = parsed.get("queries")
-    queries = [str(q).strip() for q in raw_q if str(q).strip()][:8] if isinstance(raw_q, list) else []
-    if not queries:
-        queries = ["dark storm sky", "glowing lantern night", "starry desert horizon", "open quran book"]
+    primary_q = str(parsed.get("query") or "").strip()
+    queries = [primary_q] + [q for q in SPACE_QUERIES if q != primary_q] if primary_q else list(SPACE_QUERIES)
 
-    print(f"Aakhri Zamana Short Title: {title}")
+    print(f"Short Title: {title}")
     return {
-        "id": f"akhri_short_{nonce}",
+        "id": f"short_{nonce}",
         "title": title,
         "narration": narration,
         "tags": tags,
@@ -237,9 +238,8 @@ async def save_human_voice(text: str, mp3_path: Path) -> None:
     env_voice = os.getenv("EDGE_TTS_VOICE", "").strip()
     voice = env_voice if env_voice else random.choice(HUMAN_VOICES)
     print(f"Using voice: {voice}")
-    # Punctuation pauses help Edge-TTS sound calm and natural like human speech
     spaced = re.sub(r"([۔.!?؟،,])\s*", r"\1 ", text.strip())
-    await edge_tts.Communicate(text=spaced, voice=voice, rate="-2%").save(str(mp3_path))
+    await edge_tts.Communicate(text=spaced, voice=voice).save(str(mp3_path))
 
 
 def build_segments(story_text: str, total_dur: float) -> list[dict]:
@@ -257,9 +257,74 @@ def build_segments(story_text: str, total_dur: float) -> list[dict]:
     return segments
 
 
-def make_color_clip(dest: Path, dur: float, idx: int) -> None:
-    colors = ["0x0c1322", "0x151e30", "0x101827", "0x192236"]
-    color = colors[idx % len(colors)]
+def build_single_space_frame(queries: list[str], api_key: str, dest: Path, dur: float, work: Path) -> Path:
+    canvas_bg = "0xF4F6F9"
+    card_w, card_h = 960, 540
+    card_x, card_y = (1080 - card_w) // 2, (1920 - card_h) // 2
+
+    if api_key:
+        for term in queries:
+            url = (
+                f"https://pixabay.com/api/videos/?key={urllib.parse.quote(api_key)}"
+                f"&q={urllib.parse.quote(term)}&per_page=8&safesearch=true"
+            )
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                for hit in data.get("hits", []):
+                    vids = hit.get("videos", {})
+                    for k in ("medium", "large", "small", "tiny"):
+                        link = (vids.get(k) or {}).get("url")
+                        if link:
+                            raw = work / "single_space.raw.mp4"
+                            dl_req = urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"})
+                            with urllib.request.urlopen(dl_req, timeout=25) as dresp, open(raw, "wb") as out:
+                                out.write(dresp.read())
+                            if raw.exists() and raw.stat().st_size > 30_000:
+                                fc = (
+                                    f"color=c={canvas_bg}:s=1080x1920:r=24[bg];"
+                                    f"[1:v]scale={card_w}:{card_h}:force_original_aspect_ratio=increase,"
+                                    f"crop={card_w}:{card_h},setsar=1[fg];"
+                                    f"[bg][fg]overlay={card_x}:{card_y}:shortest=1,format=yuv420p[outv]"
+                                )
+                                res = subprocess.run(
+                                    [
+                                        "ffmpeg",
+                                        "-y",
+                                        "-t",
+                                        f"{dur:.2f}",
+                                        "-f",
+                                        "lavfi",
+                                        "-i",
+                                        f"color=c={canvas_bg}:s=1080x1920:r=24:d={dur:.2f}",
+                                        "-stream_loop",
+                                        "-1",
+                                        "-i",
+                                        str(raw),
+                                        "-filter_complex",
+                                        fc,
+                                        "-map",
+                                        "[outv]",
+                                        "-t",
+                                        f"{dur:.2f}",
+                                        "-an",
+                                        "-c:v",
+                                        "libx264",
+                                        "-preset",
+                                        "ultrafast",
+                                        "-crf",
+                                        "25",
+                                        "-pix_fmt",
+                                        "yuv420p",
+                                        str(dest),
+                                    ]
+                                )
+                                if res.returncode == 0 and dest.exists() and dest.stat().st_size > 20_000:
+                                    return dest
+            except Exception as e:
+                print(f"Single space video ({term}) note: {e}")
+
     subprocess.run(
         [
             "ffmpeg",
@@ -267,88 +332,38 @@ def make_color_clip(dest: Path, dur: float, idx: int) -> None:
             "-f",
             "lavfi",
             "-i",
-            f"color=c={color}:s=1080x1920:d={dur:.2f}",
+            f"color=c={canvas_bg}:s=1080x1920:r=24:d={dur:.2f}",
             "-vf",
-            "fps=30,format=yuv420p",
+            f"drawbox=x={card_x}:y={card_y}:w={card_w}:h={card_h}:color=0x070B19:t=fill,format=yuv420p",
             "-c:v",
             "libx264",
             "-preset",
             "ultrafast",
+            "-crf",
+            "25",
             "-pix_fmt",
             "yuv420p",
             str(dest),
         ],
         check=True,
     )
-
-
-def build_short_clip(query: str, api_key: str, dest: Path, dur: float, idx: int, used_urls: set[str]) -> Path:
-    vf = (
-        "scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,eq=contrast=1.06:saturation=1.1,fps=30,format=yuv420p"
-    )
-    if api_key:
-        url = (
-            f"https://pixabay.com/api/videos/?key={urllib.parse.quote(api_key)}"
-            f"&q={urllib.parse.quote(query)}&per_page=10&safesearch=true"
-        )
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            for hit in data.get("hits", []):
-                vids = hit.get("videos", {})
-                for k in ("medium", "small", "large", "tiny"):
-                    link = (vids.get(k) or {}).get("url")
-                    if link and link not in used_urls:
-                        used_urls.add(link)
-                        raw = dest.with_suffix(".raw.mp4")
-                        dl_req = urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"})
-                        with urllib.request.urlopen(dl_req, timeout=20) as dresp, open(raw, "wb") as out:
-                            out.write(dresp.read())
-                        if raw.exists() and raw.stat().st_size > 40_000:
-                            res = subprocess.run(
-                                [
-                                    "ffmpeg",
-                                    "-y",
-                                    "-stream_loop",
-                                    "-1",
-                                    "-i",
-                                    str(raw),
-                                    "-t",
-                                    f"{dur:.2f}",
-                                    "-vf",
-                                    vf,
-                                    "-an",
-                                    "-c:v",
-                                    "libx264",
-                                    "-preset",
-                                    "ultrafast",
-                                    "-pix_fmt",
-                                    "yuv420p",
-                                    str(dest),
-                                ]
-                            )
-                            if res.returncode == 0 and dest.exists() and dest.stat().st_size > 20_000:
-                                return dest
-        except Exception as e:
-            print(f"Short clip {idx} ({query}) fallback: {e}")
-
-    make_color_clip(dest, dur, idx)
     return dest
 
 
-def apply_short_overlays(
+def apply_frame_captions(
     input_video: Path,
     output_video: Path,
+    header_title: str,
     segments: list[dict],
     font_path: Path,
     total_dur: float,
     work: Path,
 ) -> Path:
     font_str = str(font_path.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\u2019")
+    top_label = escape_ff_text(header_title[:42])
     filter_parts: list[str] = [
-        "drawbox=x=0:y=ih-340:w=iw:h=240:color=black@0.72:t=fill"
+        f"drawtext=fontfile='{font_str}':text='{top_label}':"
+        f"fontcolor=0x0F172A:fontsize=46:x=(w-tw)/2:y=360"
     ]
 
     for idx, seg in enumerate(segments):
@@ -360,34 +375,13 @@ def apply_short_overlays(
         txt_esc = escape_ff_text(seg["text"])
         if not txt_esc:
             continue
-        dur_s = max(0.1, en - st)
-        x_expr = f"max(60\\, min(w-tw-60\\, (w-tw)/2 + 45*sin(((t-{st:.2f})/{dur_s:.2f})*3.14159)))"
-        y_expr = "h-255"
         filter_parts.append(
             f"drawtext=fontfile='{font_str}':text='{txt_esc}':"
-            f"fontcolor={col}:fontsize=68:borderw=5:bordercolor=black@0.95:"
-            f"shadowcolor=black@0.85:shadowx=3:shadowy=3:"
-            f"x={x_expr}:y={y_expr}:enable='between(t,{st:.2f},{en:.2f})'"
+            f"fontcolor={col}:fontsize=62:x=(w-tw)/2:y=1320:"
+            f"enable='between(t,{st:.2f},{en:.2f})'"
         )
 
-    p_start = round(min(14.0, total_dur * 0.42), 2)
-    p_end = round(min(total_dur - 0.5, p_start + 5.0), 2)
-    if p_end > p_start + 1.0:
-        box_w, box_h = 680, 96
-        bell_txt = escape_ff_text("🔔 SUBSCRIBE & BELL")
-        x_box = f"if(lt(t-{p_start:.2f},0.35), w - ((t-{p_start:.2f})/0.35)*({box_w}+180), (w-{box_w})/2 + 10*sin((t-{p_start:.2f})*7))"
-        y_box = "150"
-        filter_parts.append(
-            f"drawbox=x='{x_box}':y='{y_box}':w={box_w}:h={box_h}:"
-            f"color=0xDC2626@0.95:t=fill:enable='between(t,{p_start:.2f},{p_end:.2f})'"
-        )
-        filter_parts.append(
-            f"drawtext=fontfile='{font_str}':text='{bell_txt}':"
-            f"fontcolor=0xFDE047:fontsize=44:borderw=4:bordercolor=black@0.95:"
-            f"x='({x_box})+38':y='({y_box})+22':enable='between(t,{p_start:.2f},{p_end:.2f})'"
-        )
-
-    script_file = work / "short_vf_chain.txt"
+    script_file = work / "frame_vf_chain.txt"
     script_file.write_text(",\n".join(filter_parts) + "\n", encoding="utf-8")
 
     res = subprocess.run(
@@ -401,16 +395,16 @@ def apply_short_overlays(
             "-c:v",
             "libx264",
             "-preset",
-            "veryfast",
+            "ultrafast",
             "-crf",
-            "23",
+            "25",
             "-pix_fmt",
             "yuv420p",
             str(output_video),
         ]
     )
     if res.returncode != 0 or not output_video.exists() or output_video.stat().st_size < 20_000:
-        print(f"Short overlay fallback (rc={res.returncode}), using merged video.")
+        print(f"Frame overlay fallback (rc={res.returncode}), using base video.")
         return input_video
     return output_video
 
@@ -423,7 +417,7 @@ def main() -> None:
     pixabay_key = os.getenv("PIXABAY_API_KEY", "").strip()
     font_path = ensure_font(work)
 
-    story = generate_akhri_zamana_short(gemini_key)
+    story = generate_short_story(gemini_key)
     title = story["title"]
     narration = story["narration"]
     tags = story["tags"]
@@ -434,25 +428,10 @@ def main() -> None:
     dur = get_dur(mp3)
 
     segments = build_segments(narration, dur)
-    each_dur = round(dur / TARGET_CLIPS, 2)
-    used_urls: set[str] = set()
-    clips: list[Path] = []
-
-    for i in range(TARGET_CLIPS):
-        q = queries[i % len(queries)]
-        clips.append(build_short_clip(q, pixabay_key, work / f"sclip_{i:02d}.mp4", each_dur, i, used_urls))
-
-    concat_txt = work / "short_concat.txt"
-    concat_txt.write_text("\n".join(f"file '{c.resolve()}'" for c in clips), encoding="utf-8")
-
-    merged = work / "short_merged.mp4"
-    subprocess.run(
-        ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_txt), "-c:v", "copy", str(merged)],
-        check=True,
-    )
+    base_frame = build_single_space_frame(queries, pixabay_key, work / "space_frame.mp4", dur, work)
 
     styled = work / "short_styled.mp4"
-    v_src = apply_short_overlays(merged, styled, segments, font_path, dur, work)
+    v_src = apply_frame_captions(base_frame, styled, title, segments, font_path, dur, work)
 
     subprocess.run(
         [
@@ -488,7 +467,7 @@ def main() -> None:
         "video_path": str(OUTPUT_VIDEO.resolve()),
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with title: {title}")
+    print(f"Generated single-space framed short {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with title: {title}")
 
 
 if __name__ == "__main__":
