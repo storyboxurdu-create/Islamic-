@@ -11,7 +11,6 @@ import edge_tts
 
 OUTPUT_VIDEO = Path("final_islamic_short.mp4")
 OUTPUT_META = Path("short_meta.json")
-TARGET_CLIPS = 1
 
 AKHRI_ZAMANA_TOPICS = [
     "Aakhri zamana mein fitnon ke waqt imaan aur sabr bachane ka sabaq",
@@ -20,13 +19,6 @@ AKHRI_ZAMANA_TOPICS = [
     "Aakhri zamana mein ilm uthne aur sachai par qaim rehne ka sabaq",
     "Aakhri zamana ki aazmaishon mein tawakkul aur istighfar ki ahmiyat",
     "Aakhri zamana mein namaz aur zikr se dil ko mazboot rakhne ka paigham",
-]
-
-SPACE_QUERIES = [
-    "outer space stars",
-    "galaxy nebula space",
-    "planet earth space",
-    "moon stars night",
 ]
 
 HUMAN_VOICES = [
@@ -141,14 +133,12 @@ def generate_short_story(api_key: str) -> dict:
         "- 'title' MUST represent the whole Short in natural Urdu script (اردو رسم الخط).\n"
         "- Do NOT write 'Daily reminder' or any date in 'title'.\n"
         "- Write ~115-135 natural spoken Urdu words in 'narration' with clear beginning, middle, and ending lesson.\n"
-        "- Write ONLY natural spoken Urdu prose, no bullets or markdown.\n"
-        "- Provide 1 primary English space query in 'query' (e.g. 'outer space stars').\n\n"
+        "- Write ONLY natural spoken Urdu prose, no bullets or markdown.\n\n"
         "Return ONLY valid JSON:\n"
         "{\n"
         '  "title": "مکمل اردو عنوان",\n'
         '  "narration": "مکمل اردو بیان",\n'
-        '  "tags": ["آخری زمانہ", "Aakhri Zamana", "Islamic Shorts", "Urdu Bayan"],\n'
-        '  "query": "outer space stars"\n'
+        '  "tags": ["آخری زمانہ", "Aakhri Zamana", "Islamic Shorts", "Urdu Bayan"]\n'
         "}"
     )
 
@@ -168,16 +158,12 @@ def generate_short_story(api_key: str) -> dict:
     if not tags:
         tags = ["آخری زمانہ", "Aakhri Zamana", "Islamic Shorts", "Urdu Bayan"]
 
-    primary_q = str(parsed.get("query") or "").strip()
-    queries = [primary_q] + [q for q in SPACE_QUERIES if q != primary_q] if primary_q else list(SPACE_QUERIES)
-
     print(f"Short Title: {title}")
     return {
         "id": f"short_{nonce}",
         "title": title,
         "narration": narration,
         "tags": tags,
-        "queries": queries,
     }
 
 
@@ -257,84 +243,68 @@ def build_segments(story_text: str, total_dur: float) -> list[dict]:
     return segments
 
 
-def build_single_space_frame(queries: list[str], api_key: str, dest: Path, dur: float, work: Path) -> Path:
+def build_2d_space_scene(dest: Path, dur: float) -> Path:
+    # 1080x1920 clean light canvas with centered 960x540 2D space scene:
+    # Glowing Moon on the right + Astronaut moving smoothly toward the Moon with subtle floating bob
     canvas_bg = "0xF4F6F9"
     card_w, card_h = 960, 540
     card_x, card_y = (1080 - card_w) // 2, (1920 - card_h) // 2
+    total_frames = max(24, int(dur * 24))
 
-    if api_key:
-        for term in queries:
-            url = (
-                f"https://pixabay.com/api/videos/?key={urllib.parse.quote(api_key)}"
-                f"&q={urllib.parse.quote(term)}&per_page=8&safesearch=true"
-            )
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                for hit in data.get("hits", []):
-                    vids = hit.get("videos", {})
-                    for k in ("medium", "large", "small", "tiny"):
-                        link = (vids.get(k) or {}).get("url")
-                        if link:
-                            raw = work / "single_space.raw.mp4"
-                            dl_req = urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"})
-                            with urllib.request.urlopen(dl_req, timeout=25) as dresp, open(raw, "wb") as out:
-                                out.write(dresp.read())
-                            if raw.exists() and raw.stat().st_size > 30_000:
-                                fc = (
-                                    f"color=c={canvas_bg}:s=1080x1920:r=24[bg];"
-                                    f"[1:v]scale={card_w}:{card_h}:force_original_aspect_ratio=increase,"
-                                    f"crop={card_w}:{card_h},setsar=1[fg];"
-                                    f"[bg][fg]overlay={card_x}:{card_y}:shortest=1,format=yuv420p[outv]"
-                                )
-                                res = subprocess.run(
-                                    [
-                                        "ffmpeg",
-                                        "-y",
-                                        "-t",
-                                        f"{dur:.2f}",
-                                        "-f",
-                                        "lavfi",
-                                        "-i",
-                                        f"color=c={canvas_bg}:s=1080x1920:r=24:d={dur:.2f}",
-                                        "-stream_loop",
-                                        "-1",
-                                        "-i",
-                                        str(raw),
-                                        "-filter_complex",
-                                        fc,
-                                        "-map",
-                                        "[outv]",
-                                        "-t",
-                                        f"{dur:.2f}",
-                                        "-an",
-                                        "-c:v",
-                                        "libx264",
-                                        "-preset",
-                                        "ultrafast",
-                                        "-crf",
-                                        "25",
-                                        "-pix_fmt",
-                                        "yuv420p",
-                                        str(dest),
-                                    ]
-                                )
-                                if res.returncode == 0 and dest.exists() and dest.stat().st_size > 20_000:
-                                    return dest
-            except Exception as e:
-                print(f"Single space video ({term}) note: {e}")
+    # Astronaut x moves smoothly rightwards toward the Moon at x=730, cycling every 14s
+    ax = "mod(t*44,640)-50"
+    ay = f"245 + 16*sin(t*2.2) - (({ax})/640)*35"
+
+    space_2d = (
+        f"color=c=0x070B19:s={card_w}x{card_h}:r=24:d={dur:.2f},"
+        "geq="
+        "lum='clip(14 + 28*exp(-((X-760)*(X-760)+(Y-210)*(Y-210))/75000) "
+        "+ 12*sin(X*0.008+T*0.4)*cos(Y*0.01-T*0.25),0,255)':"
+        "cb='clip(134 + 16*sin(X*0.006+T*0.35),16,240)':"
+        "cr='clip(124 + 12*cos(Y*0.007-T*0.3),16,240)',"
+        # Moon (Chand) positioned on the right side
+        "drawbox=x='690':y='140':w=150:h=150:color=0xFEF08A@0.18:t=fill,"
+        "drawbox=x='705':y='155':w=120:h=120:color=0xF8FAFC@0.95:t=fill,"
+        "drawbox=x='725':y='175':w=32:h=26:color=0xCBD5E1@0.65:t=fill,"
+        "drawbox=x='768':y='215':w=24:h=20:color=0xCBD5E1@0.60:t=fill,"
+        # Drifting background stars
+        "drawbox=x='mod(960-t*26+90,960)':y='75':w=4:h=4:color=white@0.85:t=fill,"
+        "drawbox=x='mod(960-t*26+310,960)':y='135':w=5:h=5:color=white@0.9:t=fill,"
+        "drawbox=x='mod(960-t*26+540,960)':y='90':w=3:h=3:color=white@0.75:t=fill,"
+        "drawbox=x='mod(960-t*48+180,960)':y='380':w=5:h=5:color=0xFDE047@0.85:t=fill,"
+        "drawbox=x='mod(960-t*48+430,960)':y='445':w=4:h=4:color=white@0.8:t=fill,"
+        "drawbox=x='mod(960-t*48+860,960)':y='340':w=5:h=5:color=0x7DD3FC@0.85:t=fill,"
+        # Tether trail behind astronaut
+        f"drawbox=x='max(0,({ax})-45)':y='({ay})+28':w=45:h=3:color=0x94A3B8@0.55:t=fill,"
+        # Astronaut suit: torso, helmet, visor, backpack, arms & legs
+        f"drawbox=x='({ax})-10':y='({ay})+10':w=14:h=34:color=0xCBD5E1@0.95:t=fill,"
+        f"drawbox=x='({ax})+4':y='({ay})+8':w=30:h=40:color=0xF8FAFC@0.98:t=fill,"
+        f"drawbox=x='({ax})+6':y='({ay})-18':w=28:h=26:color=0xF8FAFC@0.98:t=fill,"
+        f"drawbox=x='({ax})+18':y='({ay})-13':w=15:h=15:color=0xF59E0B@0.95:t=fill,"
+        f"drawbox=x='({ax})+12':y='({ay})+16':w=18:h=8:color=0x38BDF8@0.9:t=fill,"
+        f"drawbox=x='({ax})+28':y='({ay})+14+6*sin(t*4)':w=16:h=8:color=0xE2E8F0@0.95:t=fill,"
+        f"drawbox=x='({ax})+6':y='({ay})+48+6*cos(t*4)':w=10:h=18:color=0xE2E8F0@0.95:t=fill,"
+        f"drawbox=x='({ax})+22':y='({ay})+48-6*cos(t*4)':w=10:h=18:color=0xE2E8F0@0.95:t=fill,"
+        # Frame border
+        f"drawbox=x=0:y=0:w={card_w}:h={card_h}:color=0xCBD5E1@0.9:t=3,setsar=1[card]"
+    )
+
+    fc = (
+        f"color=c={canvas_bg}:s=1080x1920:r=24:d={dur:.2f}[bg];"
+        f"{space_2d};"
+        f"[bg][card]overlay={card_x}:{card_y}:shortest=1,format=yuv420p[outv]"
+    )
 
     subprocess.run(
         [
             "ffmpeg",
             "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            f"color=c={canvas_bg}:s=1080x1920:r=24:d={dur:.2f}",
-            "-vf",
-            f"drawbox=x={card_x}:y={card_y}:w={card_w}:h={card_h}:color=0x070B19:t=fill,format=yuv420p",
+            "-filter_complex",
+            fc,
+            "-map",
+            "[outv]",
+            "-frames:v",
+            str(total_frames),
             "-c:v",
             "libx264",
             "-preset",
@@ -414,21 +384,19 @@ def main() -> None:
     work.mkdir(exist_ok=True)
 
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-    pixabay_key = os.getenv("PIXABAY_API_KEY", "").strip()
     font_path = ensure_font(work)
 
     story = generate_short_story(gemini_key)
     title = story["title"]
     narration = story["narration"]
     tags = story["tags"]
-    queries = story["queries"]
 
     mp3 = work / "short_voice.mp3"
     asyncio.run(save_human_voice(narration, mp3))
     dur = get_dur(mp3)
 
     segments = build_segments(narration, dur)
-    base_frame = build_single_space_frame(queries, pixabay_key, work / "space_frame.mp4", dur, work)
+    base_frame = build_2d_space_scene(work / "space_2d_frame.mp4", dur)
 
     styled = work / "short_styled.mp4"
     v_src = apply_frame_captions(base_frame, styled, title, segments, font_path, dur, work)
@@ -467,7 +435,7 @@ def main() -> None:
         "video_path": str(OUTPUT_VIDEO.resolve()),
     }
     OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Generated single-space framed short {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with title: {title}")
+    print(f"Generated astronaut-to-moon 2D short {OUTPUT_VIDEO} ({get_dur(OUTPUT_VIDEO):.1f}s) with title: {title}")
 
 
 if __name__ == "__main__":
