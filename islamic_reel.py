@@ -10,7 +10,9 @@ from PIL import Image, ImageDraw, ImageFont
 WIDTH = 1080
 HEIGHT = 1920
 FPS = 30
+AUDIO_RATE = 44100
 
+QUESTIONS_PER_VIDEO = 5
 PAUSE_SEC = 2.0
 URDU_VOICE = "ur-PK-AsadNeural"
 
@@ -76,19 +78,26 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> lis
     return lines
 
 
-def load_or_create_items(history_path: str) -> list[dict]:
+def load_history_state(history_path: str) -> dict:
     path = Path(history_path)
     if not path.exists():
-        path.write_text(json.dumps(DEFAULT_ITEMS, ensure_ascii=False, indent=2), encoding="utf-8")
-        return DEFAULT_ITEMS
+        state = {"next_index": 0, "batch_no": 0, "items": DEFAULT_ITEMS}
+        path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+        return state
 
     data = json.loads(path.read_text(encoding="utf-8"))
-    if isinstance(data, dict):
-        items = data.get("items", [])
-    elif isinstance(data, list):
+    if isinstance(data, list):
         items = data
+        next_idx = 0
+        batch_no = 0
+    elif isinstance(data, dict):
+        items = data.get("items", [])
+        next_idx = int(data.get("next_index", 0))
+        batch_no = int(data.get("batch_no", 0))
     else:
         items = []
+        next_idx = 0
+        batch_no = 0
 
     if len(items) < 20:
         existing_questions = {x.get("question") for x in items}
@@ -97,9 +106,14 @@ def load_or_create_items(history_path: str) -> list[dict]:
                 items.append(item)
             if len(items) >= 20:
                 break
-        path.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    return items
+    state = {"next_index": next_idx, "batch_no": batch_no, "items": items}
+    path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    return state
+
+
+def save_history_state(history_path: str, state: dict):
+    Path(history_path).write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 async def generate_tts(text: str, out_mp3: Path):
@@ -108,6 +122,8 @@ async def generate_tts(text: str, out_mp3: Path):
 
 
 def get_media_duration(media_path: Path) -> float:
+    if not media_path.exists() or media_path.stat().st_size == 0:
+        return 2.0
     res = subprocess.run(
         [
             "ffprobe", "-v", "error",
@@ -119,8 +135,11 @@ def get_media_duration(media_path: Path) -> float:
         text=True,
         check=True,
     )
-    val = float(res.stdout.strip())
-    return max(1.5, val)
+    try:
+        val = float(res.stdout.strip())
+        return max(1.5, val)
+    except ValueError:
+        return 2.0
 
 
 def make_slide(
@@ -142,7 +161,7 @@ def make_slide(
         width=14,
     )
 
-    badge_w, badge_h = 260, 92
+    badge_w, badge_h = 300, 92
     bx1 = (WIDTH - badge_w) // 2
     by1 = margin + 310
     draw.rounded_rectangle(
@@ -189,11 +208,14 @@ def build_segment_with_audio(
             "ffmpeg", "-y",
             "-loop", "1", "-i", str(img_path),
             "-i", str(audio_path),
+            "-filter_complex",
+            f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.6[aout]",
+            "-map", "0:v",
+            "-map", "[aout]",
             "-t", f"{duration_sec:.2f}",
             "-r", str(FPS),
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "128k",
-            "-shortest",
+            "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
             str(out_mp4),
         ],
         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -205,12 +227,12 @@ def build_silent_pause(img_path: Path, duration_sec: float, out_mp4: Path):
         [
             "ffmpeg", "-y",
             "-loop", "1", "-i", str(img_path),
-            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+            "-f", "lavfi", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo",
             "-t", f"{duration_sec:.2f}",
             "-r", str(FPS),
             "-vf", "eq=brightness=-0.08",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "128k",
+            "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
             "-shortest",
             str(out_mp4),
         ],
@@ -218,55 +240,58 @@ def build_silent_pause(img_path: Path, duration_sec: float, out_mp4: Path):
     )
 
 
-def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
+def render_multi_qa_video(batch_items: list[dict], batch_num: int, title_font, body_font) -> Path:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    item_work = WORK_DIR / f"reel_{idx:03d}"
-    if item_work.exists():
-        shutil.rmtree(item_work)
-    item_work.mkdir(parents=True, exist_ok=True)
+    batch_work = WORK_DIR / f"batch_{batch_num:03d}"
+    if batch_work.exists():
+        shutil.rmtree(batch_work)
+    batch_work.mkdir(parents=True, exist_ok=True)
 
-    question = item["question"].strip()
-    answer = item["answer"].strip()
+    all_clips = []
 
-    q_img = item_work / "q.png"
-    a_img = item_work / "a.png"
-    q_tts = item_work / "q_voice.mp3"
-    a_tts = item_work / "a_voice.mp3"
+    for q_num, item in enumerate(batch_items, start=1):
+        question = item["question"].strip()
+        answer = item["answer"].strip()
 
-    make_slide("سوال", (234, 88, 12), question, q_img, title_font, body_font)
-    make_slide("جواب", (22, 163, 74), answer, a_img, title_font, body_font)
+        q_img = batch_work / f"q_{q_num}.png"
+        a_img = batch_work / f"a_{q_num}.png"
+        q_tts = batch_work / f"q_{q_num}_voice.mp3"
+        a_tts = batch_work / f"a_{q_num}_voice.mp3"
 
-    spoken_q = f"سوال: {question}"
-    spoken_a = f"جواب: {answer}"
-    asyncio.run(generate_tts(spoken_q, q_tts))
-    asyncio.run(generate_tts(spoken_a, a_tts))
+        make_slide(f"سوال {q_num}", (234, 88, 12), question, q_img, title_font, body_font)
+        make_slide(f"جواب {q_num}", (22, 163, 74), answer, a_img, title_font, body_font)
 
-    q_dur = get_media_duration(q_tts) + 0.4
-    a_dur = get_media_duration(a_tts) + 0.5
+        spoken_q = f"سوال نمبر {q_num}: {question}"
+        spoken_a = f"جواب: {answer}"
+        asyncio.run(generate_tts(spoken_q, q_tts))
+        asyncio.run(generate_tts(spoken_a, a_tts))
 
-    q_clip = item_work / "q.mp4"
-    p_clip = item_work / "p.mp4"
-    a_clip = item_work / "a.mp4"
-    concat_list = item_work / "concat.txt"
-    archived_mp4 = OUTPUT_DIR / f"islamic_reel_{idx:03d}.mp4"
+        q_dur = get_media_duration(q_tts) + 0.6
+        a_dur = get_media_duration(a_tts) + 0.8
 
-    build_segment_with_audio(q_img, q_tts, q_dur, q_clip)
-    build_silent_pause(q_img, PAUSE_SEC, p_clip)
-    build_segment_with_audio(a_img, a_tts, a_dur, a_clip)
+        q_clip = batch_work / f"q_{q_num}.mp4"
+        p_clip = batch_work / f"p_{q_num}.mp4"
+        a_clip = batch_work / f"a_{q_num}.mp4"
 
+        build_segment_with_audio(q_img, q_tts, q_dur, q_clip)
+        build_silent_pause(q_img, PAUSE_SEC, p_clip)
+        build_segment_with_audio(a_img, a_tts, a_dur, a_clip)
+
+        all_clips.extend([q_clip, p_clip, a_clip])
+
+    concat_list = batch_work / "concat.txt"
     concat_list.write_text(
-        f"file '{q_clip.resolve()}'\n"
-        f"file '{p_clip.resolve()}'\n"
-        f"file '{a_clip.resolve()}'\n",
+        "".join(f"file '{clip.resolve()}'\n" for clip in all_clips),
         encoding="utf-8",
     )
 
+    archived_mp4 = OUTPUT_DIR / f"islamic_batch_{batch_num:03d}.mp4"
     subprocess.run(
         [
             "ffmpeg", "-y", "-f", "concat", "-safe", "0",
             "-i", str(concat_list),
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "128k",
+            "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
             "-movflags", "+faststart",
             str(archived_mp4),
         ],
@@ -278,25 +303,29 @@ def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
 
 
 def main():
-    items = load_or_create_items(HISTORY_FILE)
+    state = load_history_state(HISTORY_FILE)
+    items = state["items"]
     if not items:
         print("No quiz items found.")
         return
 
-    title_font = get_urdu_font(54)
-    body_font = get_urdu_font(68)
+    total = len(items)
+    start_idx = state["next_index"] % total
+    count = min(QUESTIONS_PER_VIDEO, total)
 
-    for idx, item in enumerate(items, start=1):
-        out_file = OUTPUT_DIR / f"islamic_reel_{idx:03d}.mp4"
-        if not out_file.exists():
-            created = render_reel(item, idx, title_font, body_font)
-            print(f"Generated with voice: {created} (archived as {out_file})")
-            break
-    else:
-        last_idx = len(items)
-        last_item = items[-1]
-        created = render_reel(last_item, last_idx, title_font, body_font)
-        print(f"All items already rendered; refreshed {created}")
+    batch_items = [items[(start_idx + i) % total] for i in range(count)]
+    batch_num = state["batch_no"] + 1
+
+    title_font = get_urdu_font(52)
+    body_font = get_urdu_font(66)
+
+    created = render_multi_qa_video(batch_items, batch_num, title_font, body_font)
+
+    state["next_index"] = (start_idx + count) % total
+    state["batch_no"] = batch_num
+    save_history_state(HISTORY_FILE, state)
+
+    print(f"Generated batch {batch_num} with {count} Q&A items: {created}")
 
 
 if __name__ == "__main__":
