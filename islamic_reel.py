@@ -14,6 +14,7 @@ PAUSE_SEC = 2
 ANSWER_SEC = 4
 
 HISTORY_FILE = "islamic_history.json"
+FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
 OUTPUT_DIR = Path("output_reels")
 WORK_DIR = Path("work_frames")
 
@@ -175,7 +176,7 @@ def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
     p_clip = item_work / "p.mp4"
     a_clip = item_work / "a.mp4"
     concat_list = item_work / "concat.txt"
-    final_mp4 = OUTPUT_DIR / f"islamic_reel_{idx:03d}.mp4"
+    archived_mp4 = OUTPUT_DIR / f"islamic_reel_{idx:03d}.mp4"
 
     subprocess.run(
         [
@@ -217,12 +218,13 @@ def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
             "ffmpeg", "-y", "-f", "concat", "-safe", "0",
             "-i", str(concat_list),
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-            str(final_mp4),
+            str(archived_mp4),
         ],
         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
-    return final_mp4
+    shutil.copyfile(archived_mp4, FINAL_SHORT_FILE)
+    return FINAL_SHORT_FILE
 
 
 def main():
@@ -238,10 +240,13 @@ def main():
         out_file = OUTPUT_DIR / f"islamic_reel_{idx:03d}.mp4"
         if not out_file.exists():
             created = render_reel(item, idx, title_font, body_font)
-            print(f"Generated: {created}")
+            print(f"Generated: {created} (archived as {out_file})")
             break
     else:
-        print("All items already rendered.")
+        last_idx = len(items)
+        last_item = items[-1]
+        created = render_reel(last_item, last_idx, title_font, body_font)
+        print(f"All items already rendered; refreshed {created}")
 
 
 if __name__ == "__main__":
