@@ -1,17 +1,18 @@
+import asyncio
 import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
+import edge_tts
 from PIL import Image, ImageDraw, ImageFont
 
 WIDTH = 1080
 HEIGHT = 1920
 FPS = 30
 
-QUESTION_SEC = 4
-PAUSE_SEC = 2
-ANSWER_SEC = 4
+PAUSE_SEC = 2.0
+URDU_VOICE = "ur-PK-AsadNeural"
 
 HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
@@ -101,6 +102,27 @@ def load_or_create_items(history_path: str) -> list[dict]:
     return items
 
 
+async def generate_tts(text: str, out_mp3: Path):
+    communicate = edge_tts.Communicate(text=text, voice=URDU_VOICE)
+    await communicate.save(str(out_mp3))
+
+
+def get_media_duration(media_path: Path) -> float:
+    res = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            str(media_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    val = float(res.stdout.strip())
+    return max(1.5, val)
+
+
 def make_slide(
     stage_label: str,
     stage_color: tuple[int, int, int],
@@ -156,6 +178,46 @@ def make_slide(
     img.save(out_path, format="PNG")
 
 
+def build_segment_with_audio(
+    img_path: Path,
+    audio_path: Path,
+    duration_sec: float,
+    out_mp4: Path,
+):
+    subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-loop", "1", "-i", str(img_path),
+            "-i", str(audio_path),
+            "-t", f"{duration_sec:.2f}",
+            "-r", str(FPS),
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "128k",
+            "-shortest",
+            str(out_mp4),
+        ],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
+def build_silent_pause(img_path: Path, duration_sec: float, out_mp4: Path):
+    subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-loop", "1", "-i", str(img_path),
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+            "-t", f"{duration_sec:.2f}",
+            "-r", str(FPS),
+            "-vf", "eq=brightness=-0.08",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "128k",
+            "-shortest",
+            str(out_mp4),
+        ],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
 def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     item_work = WORK_DIR / f"reel_{idx:03d}"
@@ -168,9 +230,19 @@ def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
 
     q_img = item_work / "q.png"
     a_img = item_work / "a.png"
+    q_tts = item_work / "q_voice.mp3"
+    a_tts = item_work / "a_voice.mp3"
 
     make_slide("سوال", (234, 88, 12), question, q_img, title_font, body_font)
     make_slide("جواب", (22, 163, 74), answer, a_img, title_font, body_font)
+
+    spoken_q = f"سوال: {question}"
+    spoken_a = f"جواب: {answer}"
+    asyncio.run(generate_tts(spoken_q, q_tts))
+    asyncio.run(generate_tts(spoken_a, a_tts))
+
+    q_dur = get_media_duration(q_tts) + 0.4
+    a_dur = get_media_duration(a_tts) + 0.5
 
     q_clip = item_work / "q.mp4"
     p_clip = item_work / "p.mp4"
@@ -178,33 +250,9 @@ def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
     concat_list = item_work / "concat.txt"
     archived_mp4 = OUTPUT_DIR / f"islamic_reel_{idx:03d}.mp4"
 
-    subprocess.run(
-        [
-            "ffmpeg", "-y", "-loop", "1", "-i", str(q_img),
-            "-t", str(QUESTION_SEC), "-r", str(FPS),
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(q_clip),
-        ],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-
-    subprocess.run(
-        [
-            "ffmpeg", "-y", "-loop", "1", "-i", str(q_img),
-            "-t", str(PAUSE_SEC), "-r", str(FPS),
-            "-vf", "eq=brightness=-0.08",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(p_clip),
-        ],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-
-    subprocess.run(
-        [
-            "ffmpeg", "-y", "-loop", "1", "-i", str(a_img),
-            "-t", str(ANSWER_SEC), "-r", str(FPS),
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(a_clip),
-        ],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    build_segment_with_audio(q_img, q_tts, q_dur, q_clip)
+    build_silent_pause(q_img, PAUSE_SEC, p_clip)
+    build_segment_with_audio(a_img, a_tts, a_dur, a_clip)
 
     concat_list.write_text(
         f"file '{q_clip.resolve()}'\n"
@@ -217,7 +265,9 @@ def render_reel(item: dict, idx: int, title_font, body_font) -> Path:
         [
             "ffmpeg", "-y", "-f", "concat", "-safe", "0",
             "-i", str(concat_list),
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "128k",
+            "-movflags", "+faststart",
             str(archived_mp4),
         ],
         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -240,7 +290,7 @@ def main():
         out_file = OUTPUT_DIR / f"islamic_reel_{idx:03d}.mp4"
         if not out_file.exists():
             created = render_reel(item, idx, title_font, body_font)
-            print(f"Generated: {created} (archived as {out_file})")
+            print(f"Generated with voice: {created} (archived as {out_file})")
             break
     else:
         last_idx = len(items)
