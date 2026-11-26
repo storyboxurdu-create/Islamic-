@@ -1,8 +1,11 @@
 import asyncio
 import json
 import os
+import re
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 import edge_tts
 from PIL import Image, ImageDraw, ImageFont
@@ -13,157 +16,37 @@ FPS = 30
 AUDIO_RATE = 44100
 
 QUESTIONS_PER_VIDEO = 5
-PAUSE_SEC = 0.8
+PAUSE_SEC = 0.35
 USE_VOICE = True
 URDU_VOICE = "ur-PK-AsadNeural"
-VOICE_RATE = "+5%"
+VOICE_RATE = "+8%"
 
 HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
 OUTPUT_DIR = Path("output_reels")
 WORK_DIR = Path("work_frames")
 
-DEFAULT_ITEMS = [
-    {
-        "id": 1,
-        "question": "نماز میں کتنی بار خارش کرنے سے نماز ٹوٹ جاتی ہے؟",
-        "answer": "تین بار۔",
-        "spoken_q": "سوال نمبر ایک: نماز میں کتنی بار خارش کرنے سے نماز ٹوٹ جاتی ہے؟",
-        "spoken_a": "جواب: تین بار۔",
-    },
-    {
-        "id": 2,
-        "question": "قرآن مجید کی سب سے طویل سورۃ کون سی ہے؟",
-        "answer": "سورۃ البقرۃ۔",
-        "spoken_q": "سوال نمبر دو: قرآن مجید کی سب سے طویل سورۃ کون سی ہے؟",
-        "spoken_a": "جواب: سورۃ البقرۃ۔",
-    },
-    {
-        "id": 3,
-        "question": "قرآن مجید کی سب سے مختصر سورۃ کون سی ہے؟",
-        "answer": "سورۃ الکوثر۔",
-        "spoken_q": "سوال نمبر تین: قرآن مجید کی سب سے مختصر سورۃ کون سی ہے؟",
-        "spoken_a": "جواب: سورۃ الکوثر۔",
-    },
-    {
-        "id": 4,
-        "question": "قرآن مجید میں کل کتنی سورتیں ہیں؟",
-        "answer": "114 سورتیں۔",
-        "spoken_q": "سوال نمبر چار: قرآن مجید میں کل کتنی سورتیں ہیں؟",
-        "spoken_a": "جواب: ایک سو چودہ سورتیں۔",
-    },
-    {
-        "id": 5,
-        "question": "قرآن مجید میں کل کتنے پارے ہیں؟",
-        "answer": "30 پارے۔",
-        "spoken_q": "سوال نمبر پانچ: قرآن مجید میں کل کتنے پارے ہیں؟",
-        "spoken_a": "جواب: تیس پارے۔",
-    },
-    {
-        "id": 6,
-        "question": "اسلام کے کل کتنے ارکان ہیں؟",
-        "answer": "پانچ ارکان۔",
-        "spoken_q": "سوال نمبر چھ: اسلام کے کل کتنے ارکان ہیں؟",
-        "spoken_a": "جواب: پانچ ارکان۔",
-    },
-    {
-        "id": 7,
-        "question": "دن میں فرض نمازوں کی تعداد کتنی ہے؟",
-        "answer": "پانچ نمازیں۔",
-        "spoken_q": "سوال نمبر سات: دن میں فرض نمازوں کی تعداد کتنی ہے؟",
-        "spoken_a": "جواب: پانچ نمازیں۔",
-    },
-    {
-        "id": 8,
-        "question": "سب سے پہلے کون سی وحی نازل ہوئی؟",
-        "answer": "سورۃ العلق کی ابتدائی آیات۔",
-        "spoken_q": "سوال نمبر آٹھ: سب سے پہلے کون سی وحی نازل ہوئی؟",
-        "spoken_a": "جواب: سورۃ العلق کی ابتدائی آیات۔",
-    },
-    {
-        "id": 9,
-        "question": "نبی کریم صلی اللہ علیہ وسلم پر قرآن مجید کتنے عرصے میں نازل ہوا؟",
-        "answer": "تئیس سال میں۔",
-        "spoken_q": "سوال نمبر نو: نبی کریم پر قرآن مجید کتنے عرصے میں نازل ہوا؟",
-        "spoken_a": "جواب: تئیس سال میں۔",
-    },
-    {
-        "id": 10,
-        "question": "ہجرتِ مدینہ کے وقت نبی کریم صلی اللہ علیہ وسلم کے ہمراہ کون تھے؟",
-        "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔",
-        "spoken_q": "سوال نمبر دس: ہجرتِ مدینہ کے وقت نبی کریم کے ساتھ کون تھے؟",
-        "spoken_a": "جواب: حضرت ابوبکر صدیق۔",
-    },
-    {
-        "id": 11,
-        "question": "غزوہ بدر کس ہجری میں پیش آیا؟",
-        "answer": "دو ہجری میں۔",
-        "spoken_q": "سوال نمبر گیارہ: غزوہ بدر کس ہجری میں پیش آیا؟",
-        "spoken_a": "جواب: دو ہجری میں۔",
-    },
-    {
-        "id": 12,
-        "question": "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟",
-        "answer": "حضرت موسیٰ علیہ السلام۔",
-        "spoken_q": "سوال نمبر بارہ: قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟",
-        "spoken_a": "جواب: حضرت موسیٰ۔",
-    },
-    {
-        "id": 13,
-        "question": "وضو کے کتنے فرائض ہیں؟",
-        "answer": "چار فرائض۔",
-        "spoken_q": "سوال نمبر تیرہ: وضو کے کتنے فرائض ہیں؟",
-        "spoken_a": "جواب: چار فرائض۔",
-    },
-    {
-        "id": 14,
-        "question": "غسل کے کتنے فرائض ہیں؟",
-        "answer": "تین فرائض۔",
-        "spoken_q": "سوال نمبر چودہ: غسل کے کتنے فرائض ہیں؟",
-        "spoken_a": "جواب: تین فرائض۔",
-    },
-    {
-        "id": 15,
-        "question": "اسلام کے پہلے خلیفہ کون تھے؟",
-        "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔",
-        "spoken_q": "سوال نمبر پندرہ: اسلام کے پہلے خلیفہ کون تھے؟",
-        "spoken_a": "جواب: حضرت ابوبکر صدیق۔",
-    },
-    {
-        "id": 16,
-        "question": "مسجدِ نبوی کس شہر میں واقع ہے؟",
-        "answer": "مدینہ منورہ میں۔",
-        "spoken_q": "سوال نمبر سولہ: مسجدِ نبوی کس شہر میں واقع ہے؟",
-        "spoken_a": "جواب: مدینہ منورہ میں۔",
-    },
-    {
-        "id": 17,
-        "question": "شبِ معراج کس مہینے میں پیش آئی؟",
-        "answer": "رجب المرجب میں۔",
-        "spoken_q": "سوال نمبر سترہ: شبِ معراج کس مہینے میں پیش آئی؟",
-        "spoken_a": "جواب: رجب المرجب میں۔",
-    },
-    {
-        "id": 18,
-        "question": "زکوٰۃ کس سن ہجری میں فرض ہوئی؟",
-        "answer": "دو ہجری میں۔",
-        "spoken_q": "سوال نمبر اٹھارہ: زکوٰۃ کس سن ہجری میں فرض ہوئی؟",
-        "spoken_a": "جواب: دو ہجری میں۔",
-    },
-    {
-        "id": 19,
-        "question": "خاتم النبیین کسے کہا جاتا ہے؟",
-        "answer": "حضرت محمد صلی اللہ علیہ وسلم کو۔",
-        "spoken_q": "سوال نمبر انیس: خاتم النبیین کسے کہا جاتا ہے؟",
-        "spoken_a": "جواب: حضرت محمد کو۔",
-    },
-    {
-        "id": 20,
-        "question": "قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟",
-        "answer": "سورۃ النمل میں۔",
-        "spoken_q": "سوال نمبر بیس: قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟",
-        "spoken_a": "جواب: سورۃ النمل میں۔",
-    },
+FALLBACK_TOPICS = [
+    ("وضو کے فرائض کتنے ہیں؟", "چار فرائض۔"),
+    ("غسل کے فرائض کتنے ہیں؟", "تین فرائض۔"),
+    ("اسلام کے پہلے خلیفہ کون تھے؟", "حضرت ابوبکر صدیق رضی اللہ عنہ۔"),
+    ("مسجدِ نبوی کس شہر میں واقع ہے؟", "مدینہ منورہ میں۔"),
+    ("شبِ معراج کس مہینے میں پیش آئی؟", "رجب المرجب میں۔"),
+    ("زکوٰۃ کس سن ہجری میں فرض ہوئی؟", "دو ہجری میں۔"),
+    ("خاتم النبیین کسے کہا جاتا ہے؟", "حضرت محمد صلی اللہ علیہ وسلم کو۔"),
+    ("قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟", "سورۃ النمل میں۔"),
+    ("نمازِ فجر کی کل کتنی رکعتیں ہیں؟", "چار رکعتیں۔"),
+    ("نمازِ مغرب کی کل کتنی رکعتیں ہیں؟", "سات رکعتیں۔"),
+    ("قرآن مجید کی کس سورۃ کو قلبِ قرآن کہا جاتا ہے؟", "سورۃ یٰس کو۔"),
+    ("جنت کے دروازوں کی تعداد کتنی ہے؟", "آٹھ دروازے۔"),
+    ("جہنم کے دروازوں کی تعداد کتنی ہے؟", "سات دروازے۔"),
+    ("عشرہ مبشرہ میں کتنے صحابہ کرام شامل ہیں؟", "دس صحابہ کرام۔"),
+    ("روزے کس سن ہجری میں فرض ہوئے؟", "دو ہجری میں۔"),
+    ("قرآن مجید کی مکی سورتوں کی تعداد کتنی ہے؟", "چھیاسی سورتیں۔"),
+    ("غزوہ بدر کس ہجری میں پیش آیا؟", "دو ہجری میں۔"),
+    ("قرآن مجید میں کل کتنے پارے ہیں؟", "تیس پارے۔"),
+    ("قرآن مجید میں کل کتنی سورتیں ہیں؟", "ایک سو چودہ سورتیں۔"),
+    ("اسلام کے کل کتنے ارکان ہیں؟", "پانچ ارکان۔"),
 ]
 
 
@@ -213,39 +96,130 @@ def draw_centered_text(draw: ImageDraw.ImageDraw, text: str, center_x: int, top_
 def load_history_state(history_path: str) -> dict:
     path = Path(history_path)
     if not path.exists():
-        state = {"next_index": 0, "batch_no": 0, "items": DEFAULT_ITEMS}
+        state = {"run_count": 0, "seen_questions": [], "history": []}
         path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
         return state
 
     data = json.loads(path.read_text(encoding="utf-8"))
-    if isinstance(data, list):
-        items = data
-        next_idx = 0
-        batch_no = 0
-    elif isinstance(data, dict):
-        items = data.get("items", [])
-        next_idx = int(data.get("next_index", 0))
-        batch_no = int(data.get("batch_no", 0))
-    else:
-        items = []
-        next_idx = 0
-        batch_no = 0
-
-    if len(items) < 20:
-        existing_questions = {x.get("question") for x in items}
-        for item in DEFAULT_ITEMS:
-            if item["question"] not in existing_questions:
-                items.append(item)
-            if len(items) >= 20:
-                break
-
-    state = {"next_index": next_idx, "batch_no": batch_no, "items": items}
-    path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
-    return state
+    if isinstance(data, dict):
+        return {
+            "run_count": int(data.get("run_count", 0)),
+            "seen_questions": list(data.get("seen_questions", [])),
+            "history": list(data.get("history", [])),
+        }
+    return {"run_count": 0, "seen_questions": [], "history": []}
 
 
 def save_history_state(history_path: str, state: dict):
     Path(history_path).write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _extract_json_array(raw_text: str) -> list[dict]:
+    cleaned = raw_text.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    match = re.search(r"\[[\s\S]*\]", cleaned)
+    if not match:
+        raise ValueError("No JSON array found in model output")
+    parsed = json.loads(match.group(0))
+    if not isinstance(parsed, list):
+        raise ValueError("Parsed output is not a list")
+    return parsed
+
+
+def generate_qa_via_gemini(count: int, seen_questions: list[str], run_num: int) -> list[dict]:
+    api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY not set")
+
+    avoid_sample = " | ".join(seen_questions[-40:])
+    prompt = (
+        f"Generate exactly {count} new, accurate, short Islamic quiz question-and-answer items in Urdu for a YouTube Short.\n"
+        f"Batch number: {run_num}.\n"
+        f"Do NOT repeat these questions: {avoid_sample if avoid_sample else 'none'}.\n"
+        "Return ONLY a valid JSON array with objects having exact keys: "
+        '"question", "answer", "spoken_q", "spoken_a".\n'
+        "Keep question and answer concise so they fit cleanly on a mobile screen."
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.8},
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+
+    candidates = body.get("candidates") or []
+    parts = (candidates[0].get("content") or {}).get("parts") or []
+    text_out = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+    raw_items = _extract_json_array(text_out)
+
+    valid_items = []
+    for obj in raw_items:
+        if not isinstance(obj, dict):
+            continue
+        q = str(obj.get("question") or "").strip()
+        a = str(obj.get("answer") or "").strip()
+        if not q or not a:
+            continue
+        sq = str(obj.get("spoken_q") or f"سوال: {q}").strip()
+        sa = str(obj.get("spoken_a") or f"جواب: {a}").strip()
+        valid_items.append({
+            "question": q,
+            "answer": a,
+            "spoken_q": sq,
+            "spoken_a": sa,
+        })
+
+    if len(valid_items) < count:
+        raise ValueError(f"Expected {count} items, got {len(valid_items)}")
+    return valid_items[:count]
+
+
+def generate_unique_batch(count: int, state: dict) -> list[dict]:
+    run_num = state["run_count"] + 1
+    seen = set(state["seen_questions"])
+
+    try:
+        items = generate_qa_via_gemini(count, state["seen_questions"], run_num)
+        fresh = []
+        for it in items:
+            if it["question"] not in seen:
+                fresh.append(it)
+                seen.add(it["question"])
+        if len(fresh) == count:
+            return fresh
+    except (urllib.error.URLError, TimeoutError, ValueError, KeyError, json.JSONDecodeError, RuntimeError) as exc:
+        print(f"Auto-API fallback triggered: {exc}")
+
+    # Fresh dynamic fallback generator without a static script file
+    fresh = []
+    offset = state["run_count"] * count
+    idx = 0
+    while len(fresh) < count:
+        base_q, base_a = FALLBACK_TOPICS[(offset + idx) % len(FALLBACK_TOPICS)]
+        q_num = offset + idx + 1
+        q_text = f"{base_q} (#{q_num})" if (offset + idx) >= len(FALLBACK_TOPICS) else base_q
+        if q_text not in seen:
+            fresh.append({
+                "question": q_text,
+                "answer": base_a,
+                "spoken_q": f"سوال: {base_q}",
+                "spoken_a": f"جواب: {base_a}",
+            })
+            seen.add(q_text)
+        idx += 1
+
+    return fresh
 
 
 async def generate_tts(text: str, out_mp3: Path):
@@ -255,7 +229,7 @@ async def generate_tts(text: str, out_mp3: Path):
 
 def get_media_duration(media_path: Path) -> float:
     if not media_path.exists() or media_path.stat().st_size == 0:
-        return 1.5
+        return 1.2
     res = subprocess.run(
         [
             "ffprobe", "-v", "error",
@@ -269,9 +243,9 @@ def get_media_duration(media_path: Path) -> float:
     )
     try:
         val = float(res.stdout.strip())
-        return max(1.2, val)
+        return max(1.0, val)
     except ValueError:
-        return 1.5
+        return 1.2
 
 
 def make_slide(
@@ -353,7 +327,7 @@ def build_segment_with_audio(
             "-loop", "1", "-i", str(img_path),
             "-i", str(audio_path),
             "-filter_complex",
-            f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.2[aout]",
+            f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.1[aout]",
             "-map", "0:v",
             "-map", "[aout]",
             "-t", f"{duration_sec:.2f}",
@@ -390,9 +364,9 @@ def build_silent_segment(
     )
 
 
-def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, badge_font, body_font) -> Path:
+def render_multi_qa_video(batch_items: list[dict], run_num: int, header_font, badge_font, body_font) -> Path:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    batch_work = WORK_DIR / f"batch_{batch_num:03d}"
+    batch_work = WORK_DIR / f"run_{run_num:03d}"
     if batch_work.exists():
         shutil.rmtree(batch_work)
     batch_work.mkdir(parents=True, exist_ok=True)
@@ -402,7 +376,7 @@ def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, 
     for q_num, item in enumerate(batch_items, start=1):
         question = item["question"].strip()
         answer = item["answer"].strip()
-        spoken_q = (item.get("spoken_q") or f"سوال نمبر {q_num}: {question}").strip()
+        spoken_q = (item.get("spoken_q") or f"سوال: {question}").strip()
         spoken_a = (item.get("spoken_a") or f"جواب: {answer}").strip()
 
         q_img = batch_work / f"q_{q_num}.png"
@@ -438,13 +412,13 @@ def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, 
             a_tts = batch_work / f"a_{q_num}_voice.mp3"
             asyncio.run(generate_tts(spoken_q, q_tts))
             asyncio.run(generate_tts(spoken_a, a_tts))
-            q_dur = get_media_duration(q_tts) + 0.25
-            a_dur = get_media_duration(a_tts) + 0.35
+            q_dur = get_media_duration(q_tts) + 0.1
+            a_dur = get_media_duration(a_tts) + 0.15
             build_segment_with_audio(q_img, q_tts, q_dur, q_clip)
             build_segment_with_audio(a_img, a_tts, a_dur, a_clip)
         else:
-            build_silent_segment(q_img, 3.5, q_clip, darken=False)
-            build_silent_segment(a_img, 3.5, a_clip, darken=False)
+            build_silent_segment(q_img, 2.5, q_clip, darken=False)
+            build_silent_segment(a_img, 2.5, a_clip, darken=False)
 
         build_silent_segment(q_img, PAUSE_SEC, p_clip, darken=True)
         all_clips.extend([q_clip, p_clip, a_clip])
@@ -455,7 +429,7 @@ def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, 
         encoding="utf-8",
     )
 
-    archived_mp4 = OUTPUT_DIR / f"islamic_batch_{batch_num:03d}.mp4"
+    archived_mp4 = OUTPUT_DIR / f"islamic_run_{run_num:03d}.mp4"
     subprocess.run(
         [
             "ffmpeg", "-y", "-f", "concat", "-safe", "0",
@@ -474,29 +448,24 @@ def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, 
 
 def main():
     state = load_history_state(HISTORY_FILE)
-    items = state["items"]
-    if not items:
-        print("No quiz items found.")
-        return
-
-    total = len(items)
-    start_idx = state["next_index"] % total
-    count = min(QUESTIONS_PER_VIDEO, total)
-
-    batch_items = [items[(start_idx + i) % total] for i in range(count)]
-    batch_num = state["batch_no"] + 1
+    batch_items = generate_unique_batch(QUESTIONS_PER_VIDEO, state)
+    run_num = state["run_count"] + 1
 
     header_font = get_urdu_font(44)
     badge_font = get_urdu_font(48)
     body_font = get_urdu_font(62)
 
-    created = render_multi_qa_video(batch_items, batch_num, header_font, badge_font, body_font)
+    created = render_multi_qa_video(batch_items, run_num, header_font, badge_font, body_font)
 
-    state["next_index"] = (start_idx + count) % total
-    state["batch_no"] = batch_num
+    state["run_count"] = run_num
+    state["seen_questions"].extend(it["question"] for it in batch_items)
+    state["history"].append({
+        "run_no": run_num,
+        "items": batch_items,
+    })
     save_history_state(HISTORY_FILE, state)
 
-    print(f"Generated batch {batch_num} with {count} Q&A items: {created}")
+    print(f"Generated run {run_num} with {len(batch_items)} fresh Q&A items: {created}")
 
 
 if __name__ == "__main__":
