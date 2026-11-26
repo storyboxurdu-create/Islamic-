@@ -13,8 +13,9 @@ FPS = 30
 AUDIO_RATE = 44100
 
 QUESTIONS_PER_VIDEO = 5
-PAUSE_SEC = 2.0
+PAUSE_SEC = 0.8
 URDU_VOICE = "ur-PK-AsadNeural"
+VOICE_RATE = "+10%"
 
 HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
@@ -30,16 +31,16 @@ DEFAULT_ITEMS = [
     {"id": 6, "question": "اسلام کے کل کتنے ارکان ہیں؟", "answer": "پانچ ارکان۔"},
     {"id": 7, "question": "دن میں فرض نمازوں کی تعداد کتنی ہے؟", "answer": "پانچ نمازیں۔"},
     {"id": 8, "question": "سب سے پہلے کون سی وحی نازل ہوئی؟", "answer": "سورۃ العلق کی ابتدائی آیات۔"},
-    {"id": 9, "question": "نبی کریم صلی اللہ علیہ وسلم پر قرآن مجید کتنے عرصے میں نازل ہوا؟", "answer": "تئیس (23) سال میں۔"},
+    {"id": 9, "question": "نبی کریم صلی اللہ علیہ وسلم پر قرآن مجید کتنے عرصے میں نازل ہوا؟", "answer": "تئیس سال میں۔"},
     {"id": 10, "question": "ہجرتِ مدینہ کے وقت نبی کریم صلی اللہ علیہ وسلم کے ہمراہ کون تھے؟", "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔"},
-    {"id": 11, "question": "غزوہ بدر کس ہجری میں پیش آیا؟", "answer": "2 ہجری میں۔"},
+    {"id": 11, "question": "غزوہ بدر کس ہجری میں پیش آیا؟", "answer": "دو ہجری میں۔"},
     {"id": 12, "question": "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟", "answer": "حضرت موسیٰ علیہ السلام۔"},
     {"id": 13, "question": "وضو کے کتنے فرائض ہیں؟", "answer": "چار فرائض۔"},
     {"id": 14, "question": "غسل کے کتنے فرائض ہیں؟", "answer": "تین فرائض۔"},
     {"id": 15, "question": "اسلام کے پہلے خلیفہ کون تھے؟", "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔"},
     {"id": 16, "question": "مسجدِ نبوی کس شہر میں واقع ہے؟", "answer": "مدینہ منورہ میں۔"},
     {"id": 17, "question": "شبِ معراج کس مہینے میں پیش آئی؟", "answer": "رجب المرجب میں۔"},
-    {"id": 18, "question": "زکوٰۃ کس سن ہجری میں فرض ہوئی؟", "answer": "2 ہجری میں۔"},
+    {"id": 18, "question": "زکوٰۃ کس سن ہجری میں فرض ہوئی؟", "answer": "دو ہجری میں۔"},
     {"id": 19, "question": "خاتم النبیین کسے کہا جاتا ہے؟", "answer": "حضرت محمد صلی اللہ علیہ وسلم کو۔"},
     {"id": 20, "question": "قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟", "answer": "سورۃ النمل میں۔"},
 ]
@@ -76,6 +77,16 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> lis
             current = word
     lines.append(current)
     return lines
+
+
+def draw_centered_text(draw: ImageDraw.ImageDraw, text: str, center_x: int, top_y: int, font, fill):
+    bbox = draw.textbbox((0, 0), text, font=font)
+    w = bbox[2] - bbox[0]
+    h = bbox[3] - bbox[1]
+    x = center_x - (w // 2) - bbox[0]
+    y = top_y - bbox[1]
+    draw.text((x, y), text, font=font, fill=fill)
+    return h
 
 
 def load_history_state(history_path: str) -> dict:
@@ -117,13 +128,13 @@ def save_history_state(history_path: str, state: dict):
 
 
 async def generate_tts(text: str, out_mp3: Path):
-    communicate = edge_tts.Communicate(text=text, voice=URDU_VOICE)
+    communicate = edge_tts.Communicate(text=text, voice=URDU_VOICE, rate=VOICE_RATE)
     await communicate.save(str(out_mp3))
 
 
 def get_media_duration(media_path: Path) -> float:
     if not media_path.exists() or media_path.stat().st_size == 0:
-        return 2.0
+        return 1.5
     res = subprocess.run(
         [
             "ffprobe", "-v", "error",
@@ -137,61 +148,79 @@ def get_media_duration(media_path: Path) -> float:
     )
     try:
         val = float(res.stdout.strip())
-        return max(1.5, val)
+        return max(1.2, val)
     except ValueError:
-        return 2.0
+        return 1.5
 
 
 def make_slide(
-    stage_label: str,
-    stage_color: tuple[int, int, int],
+    top_heading: str,
+    badge_label: str,
+    badge_color: tuple[int, int, int],
     main_text: str,
     out_path: Path,
-    title_font,
+    header_font,
+    badge_font,
     body_font,
 ):
-    img = Image.new("RGB", (WIDTH, HEIGHT), (15, 23, 42))
+    # Rich dark emerald-navy background with colorful top bar & card
+    img = Image.new("RGB", (WIDTH, HEIGHT), (10, 31, 38))
     draw = ImageDraw.Draw(img)
 
-    margin = 48
-    draw.rectangle(
-        [margin, margin + 260, WIDTH - margin, HEIGHT - margin - 260],
-        fill=(248, 250, 252),
-        outline=(22, 163, 74),
-        width=14,
+    # Top colorful banner
+    draw.rectangle([0, 0, WIDTH, 210], fill=(16, 185, 129))
+    draw.rectangle([0, 210, WIDTH, 224], fill=(245, 158, 11))
+    draw_centered_text(draw, top_heading, WIDTH // 2, 55, header_font, (255, 255, 255))
+
+    # Bottom colorful bar
+    draw.rectangle([0, HEIGHT - 150, WIDTH, HEIGHT], fill=(15, 118, 110))
+    draw.rectangle([0, HEIGHT - 162, WIDTH, HEIGHT - 150], fill=(245, 158, 11))
+    draw_centered_text(draw, "الحمد للہ", WIDTH // 2, HEIGHT - 115, header_font, (254, 243, 199))
+
+    # Main colorful card
+    card_left = 44
+    card_right = WIDTH - 44
+    card_top = 275
+    card_bottom = HEIGHT - 215
+    draw.rounded_rectangle(
+        [card_left, card_top, card_right, card_bottom],
+        radius=36,
+        fill=(255, 251, 235),
+        outline=(217, 119, 6),
+        width=10,
     )
 
-    badge_w, badge_h = 300, 92
+    # Wide badge so text never clips on left/right
+    badge_w = 420
+    badge_h = 120
     bx1 = (WIDTH - badge_w) // 2
-    by1 = margin + 310
+    by1 = card_top + 45
     draw.rounded_rectangle(
         [bx1, by1, bx1 + badge_w, by1 + badge_h],
-        radius=20,
-        fill=stage_color,
+        radius=28,
+        fill=badge_color,
+        outline=(255, 255, 255),
+        width=4,
     )
-    tb = draw.textbbox((0, 0), stage_label, font=title_font)
-    tx = bx1 + (badge_w - (tb[2] - tb[0])) // 2
-    ty = by1 + (badge_h - (tb[3] - tb[1])) // 2 - 6
-    draw.text((tx, ty), stage_label, font=title_font, fill=(255, 255, 255))
+    draw_centered_text(draw, badge_label, WIDTH // 2, by1 + 22, badge_font, (255, 255, 255))
 
-    max_text_w = WIDTH - (margin * 2) - 120
+    # Body text inside card
+    max_text_w = (card_right - card_left) - 110
     lines = wrap_text(draw, main_text, body_font, max_text_w)
 
-    line_heights = []
+    measured = []
     for line in lines:
-        lb = draw.textbbox((0, 0), line, font=body_font)
-        line_heights.append(max(64, (lb[3] - lb[1]) + 28))
+        bb = draw.textbbox((0, 0), line, font=body_font)
+        lh = (bb[3] - bb[1]) + 34
+        measured.append((line, lh))
 
-    total_h = sum(line_heights)
-    card_top = by1 + badge_h + 60
-    card_bottom = HEIGHT - margin - 300
-    cur_y = card_top + max(0, ((card_bottom - card_top) - total_h) // 2)
+    total_h = sum(lh for _, lh in measured)
+    text_area_top = by1 + badge_h + 75
+    text_area_bottom = card_bottom - 55
+    cur_y = text_area_top + max(0, ((text_area_bottom - text_area_top) - total_h) // 2)
 
-    for line, lh in zip(lines, line_heights):
-        lb = draw.textbbox((0, 0), line, font=body_font)
-        lw = lb[2] - lb[0]
-        lx = (WIDTH - lw) // 2
-        draw.text((lx, cur_y), line, font=body_font, fill=(17, 24, 39))
+    for line, lh in measured:
+        draw_centered_text(draw, line, WIDTH // 2, cur_y, body_font, (17, 24, 39))
         cur_y += lh
 
     img.save(out_path, format="PNG")
@@ -209,7 +238,7 @@ def build_segment_with_audio(
             "-loop", "1", "-i", str(img_path),
             "-i", str(audio_path),
             "-filter_complex",
-            f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.6[aout]",
+            f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.2[aout]",
             "-map", "0:v",
             "-map", "[aout]",
             "-t", f"{duration_sec:.2f}",
@@ -230,7 +259,7 @@ def build_silent_pause(img_path: Path, duration_sec: float, out_mp4: Path):
             "-f", "lavfi", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo",
             "-t", f"{duration_sec:.2f}",
             "-r", str(FPS),
-            "-vf", "eq=brightness=-0.08",
+            "-vf", "eq=brightness=-0.05",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
             "-shortest",
@@ -240,7 +269,7 @@ def build_silent_pause(img_path: Path, duration_sec: float, out_mp4: Path):
     )
 
 
-def render_multi_qa_video(batch_items: list[dict], batch_num: int, title_font, body_font) -> Path:
+def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, badge_font, body_font) -> Path:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     batch_work = WORK_DIR / f"batch_{batch_num:03d}"
     if batch_work.exists():
@@ -258,16 +287,34 @@ def render_multi_qa_video(batch_items: list[dict], batch_num: int, title_font, b
         q_tts = batch_work / f"q_{q_num}_voice.mp3"
         a_tts = batch_work / f"a_{q_num}_voice.mp3"
 
-        make_slide(f"سوال {q_num}", (234, 88, 12), question, q_img, title_font, body_font)
-        make_slide(f"جواب {q_num}", (22, 163, 74), answer, a_img, title_font, body_font)
+        make_slide(
+            "بسم اللہ الرحمن الرحیم",
+            f"سوال {q_num}",
+            (217, 119, 6),
+            question,
+            q_img,
+            header_font,
+            badge_font,
+            body_font,
+        )
+        make_slide(
+            "بسم اللہ الرحمن الرحیم",
+            f"جواب {q_num}",
+            (5, 150, 105),
+            answer,
+            a_img,
+            header_font,
+            badge_font,
+            body_font,
+        )
 
         spoken_q = f"سوال نمبر {q_num}: {question}"
         spoken_a = f"جواب: {answer}"
         asyncio.run(generate_tts(spoken_q, q_tts))
         asyncio.run(generate_tts(spoken_a, a_tts))
 
-        q_dur = get_media_duration(q_tts) + 0.6
-        a_dur = get_media_duration(a_tts) + 0.8
+        q_dur = get_media_duration(q_tts) + 0.25
+        a_dur = get_media_duration(a_tts) + 0.35
 
         q_clip = batch_work / f"q_{q_num}.mp4"
         p_clip = batch_work / f"p_{q_num}.mp4"
@@ -316,10 +363,11 @@ def main():
     batch_items = [items[(start_idx + i) % total] for i in range(count)]
     batch_num = state["batch_no"] + 1
 
-    title_font = get_urdu_font(52)
-    body_font = get_urdu_font(66)
+    header_font = get_urdu_font(44)
+    badge_font = get_urdu_font(48)
+    body_font = get_urdu_font(62)
 
-    created = render_multi_qa_video(batch_items, batch_num, title_font, body_font)
+    created = render_multi_qa_video(batch_items, batch_num, header_font, badge_font, body_font)
 
     state["next_index"] = (start_idx + count) % total
     state["batch_no"] = batch_num
