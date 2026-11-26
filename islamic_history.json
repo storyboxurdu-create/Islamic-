@@ -1,45 +1,102 @@
-{
-  "used_ids": [
-    "fallback_01_dil_aur_waqt",
-    "story_01_bilal_aur_waqt",
-    "urdu_story_02_zuban_aur_fitna",
-    "urdu_story_01_waqt_aur_dil",
-    "sabaq_02_be_adabi_aur_shor",
-    "aakhri_zamana_social_media_fitna",
-    "aakhri_zamana_digital_blindness",
-    "aakhri_zamana_dil_ka_sukoon",
-    "aakhri_zamana_ghflat_aur_roshni",
-    "aakhri_zamana_bechaini_aur_zikr",
-    "aakhri_zamana_be_basi_aur_noor",
-    "aakhri_zamana_khoobsurat_sach_03",
-    "aakhri_zamana_dil_ka_bhoojh_04",
-    "aakhri_zamana_sacha_sabaq_05",
-    "aakhri_zamana_gehra_sabaq_06",
-    "aakhri_zamana_dil_ka_safeer_07",
-    "aakhri_zamana_roohani_bidaari_08",
-    "aakhri_zamana_sacha_ehsas_09",
-    "aakhri_zamana_choti_si_baat_10",
-    "aakhri_zamana_gehri_soch_11",
-    "sabaq_583172",
-    "sabaq_173629",
-    "sabaq_985413",
-    "sabaq_817515",
-    "sabaq_240465",
-    "sabaq_618333",
-    "sabaq_272194",
-    "sabaq_631634",
-    "sabaq_456786",
-    "sabaq_645105"
-  ],
-  "recent_summaries": [
-    "دجال کے عظیم فتنے، اس کی جھوٹی خدائی اور اس دور میں ایمان بچانے کی حقیقت پر مبنی سبق آموز بیان۔",
-    "یاجوج ماجوج کے خروج کے قریب آنے اور غفلت بھری زندگی سے توبہ کی طرف لوٹنے کی یاددہانی",
-    "Aakhri zamana ke fitnon mein dil aur amal ko kaise sambhala jaye",
-    "An authentic Urdu YouTube Short exploring patience, absolute faith, and trust in Allah through the true accounts of the Prophets.",
-    "A high-retention Islamic short discussing the signs of the end times and practical ways to protect one's heart and deeds.",
-    "An authentic Urdu YouTube Short highlighting the unmatched truthfulness and sacrifices of the Sahaba to inspire sincere faith.",
-    "An authentic Urdu YouTube Short exploring patience and absolute faith through true accounts of the Prophets in contrast to worldly distractions.",
-    "Duniya ki ranginiyon mein khoye logon ko yaجوج ماجوج ke khروج aur aakhri zamana ki yaad-dihani ka sabaq-amoz paigham.",
-    "Duniya ki be-khabari aur yaajooஜ maajooj ke aanay wale waqt ki yaad-dihani par mabni sabaq-amoz paigham."
-  ]
-}
+[
+  {
+    "id": 1,
+    "question": "نماز میں کتنی بار خارش کرنے سے نماز ٹوٹ جاتی ہے؟",
+    "answer": "تین بار۔"
+  },
+  {
+    "id": 2,
+    "question": "قرآن مجید کی سب سے طویل سورۃ کون سی ہے؟",
+    "answer": "سورۃ البقرۃ۔"
+  },
+  {
+    "id": 3,
+    "question": "قرآن مجید کی سب سے مختصر سورۃ کون سی ہے؟",
+    "answer": "سورۃ الکوثر۔"
+  },
+  {
+    "id": 4,
+    "question": "قرآن مجید میں کل کتنی سورتیں ہیں؟",
+    "answer": "114 سورتیں۔"
+  },
+  {
+    "id": 5,
+    "question": "قرآن مجید میں کل کتنے پارے ہیں؟",
+    "answer": "30 پارے۔"
+  },
+  {
+    "id": 6,
+    "question": "اسلام کے کل کتنے ارکان ہیں؟",
+    "answer": "پانچ ارکان۔"
+  },
+  {
+    "id": 7,
+    "question": "دن میں فرض نمازوں کی تعداد کتنی ہے؟",
+    "answer": "پانچ نمازیں۔"
+  },
+  {
+    "id": 8,
+    "question": "سب سے پہلے کون سی وحی نازل ہوئی؟",
+    "answer": "سورۃ العلق کی ابتدائی آیات۔"
+  },
+  {
+    "id": 9,
+    "question": "نبی کریم صلی اللہ علیہ وسلم پر قرآن مجید کتنے عرصے میں نازل ہوا؟",
+    "answer": "تئیس (23) سال میں۔"
+  },
+  {
+    "id": 10,
+    "question": "ہجرتِ مدینہ کے وقت نبی کریم صلی اللہ علیہ وسلم کے ہمراہ کون تھے؟",
+    "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔"
+  },
+  {
+    "id": 11,
+    "question": "غزوہ بدر کس ہجری میں پیش آیا؟",
+    "answer": "2 ہجری میں۔"
+  },
+  {
+    "id": 12,
+    "question": "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟",
+    "answer": "حضرت موسیٰ علیہ السلام۔"
+  },
+  {
+    "id": 13,
+    "question": "وضو کے کتنے فرائض ہیں؟",
+    "answer": "چار فرائض۔"
+  },
+  {
+    "id": 14,
+    "question": "غسل کے کتنے فرائض ہیں؟",
+    "answer": "تین فرائض۔"
+  },
+  {
+    "id": 15,
+    "question": "اسلام کے پہلے خلیفہ کون تھے؟",
+    "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔"
+  },
+  {
+    "id": 16,
+    "question": "مسجدِ نبوی کس شہر میں واقع ہے؟",
+    "answer": "مدینہ منورہ میں۔"
+  },
+  {
+    "id": 17,
+    "question": "شبِ معراج کس مہینے میں پیش آئی؟",
+    "answer": "رجب المرجب میں۔"
+  },
+  {
+    "id": 18,
+    "question": "زکوٰۃ کس سن ہجری میں فرض ہوئی؟",
+    "answer": "2 ہجری میں۔"
+  },
+  {
+    "id": 19,
+    "question": "خاتم النبیین کسے کہا جاتا ہے؟",
+    "answer": "حضرت محمد صلی اللہ علیہ وسلم کو۔"
+  },
+  {
+    "id": 20,
+    "question": "قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟",
+    "answer": "سورۃ النمل میں۔"
+  }
+]
