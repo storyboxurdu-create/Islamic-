@@ -14,8 +14,9 @@ AUDIO_RATE = 44100
 
 QUESTIONS_PER_VIDEO = 5
 PAUSE_SEC = 0.8
+USE_VOICE = True
 URDU_VOICE = "ur-PK-AsadNeural"
-VOICE_RATE = "+10%"
+VOICE_RATE = "+5%"
 
 HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
@@ -23,26 +24,146 @@ OUTPUT_DIR = Path("output_reels")
 WORK_DIR = Path("work_frames")
 
 DEFAULT_ITEMS = [
-    {"id": 1, "question": "نماز میں کتنی بار خارش کرنے سے نماز ٹوٹ جاتی ہے؟", "answer": "تین بار۔"},
-    {"id": 2, "question": "قرآن مجید کی سب سے طویل سورۃ کون سی ہے؟", "answer": "سورۃ البقرۃ۔"},
-    {"id": 3, "question": "قرآن مجید کی سب سے مختصر سورۃ کون سی ہے؟", "answer": "سورۃ الکوثر۔"},
-    {"id": 4, "question": "قرآن مجید میں کل کتنی سورتیں ہیں؟", "answer": "114 سورتیں۔"},
-    {"id": 5, "question": "قرآن مجید میں کل کتنے پارے ہیں؟", "answer": "30 پارے۔"},
-    {"id": 6, "question": "اسلام کے کل کتنے ارکان ہیں؟", "answer": "پانچ ارکان۔"},
-    {"id": 7, "question": "دن میں فرض نمازوں کی تعداد کتنی ہے؟", "answer": "پانچ نمازیں۔"},
-    {"id": 8, "question": "سب سے پہلے کون سی وحی نازل ہوئی؟", "answer": "سورۃ العلق کی ابتدائی آیات۔"},
-    {"id": 9, "question": "نبی کریم صلی اللہ علیہ وسلم پر قرآن مجید کتنے عرصے میں نازل ہوا؟", "answer": "تئیس سال میں۔"},
-    {"id": 10, "question": "ہجرتِ مدینہ کے وقت نبی کریم صلی اللہ علیہ وسلم کے ہمراہ کون تھے؟", "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔"},
-    {"id": 11, "question": "غزوہ بدر کس ہجری میں پیش آیا؟", "answer": "دو ہجری میں۔"},
-    {"id": 12, "question": "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟", "answer": "حضرت موسیٰ علیہ السلام۔"},
-    {"id": 13, "question": "وضو کے کتنے فرائض ہیں؟", "answer": "چار فرائض۔"},
-    {"id": 14, "question": "غسل کے کتنے فرائض ہیں؟", "answer": "تین فرائض۔"},
-    {"id": 15, "question": "اسلام کے پہلے خلیفہ کون تھے؟", "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔"},
-    {"id": 16, "question": "مسجدِ نبوی کس شہر میں واقع ہے؟", "answer": "مدینہ منورہ میں۔"},
-    {"id": 17, "question": "شبِ معراج کس مہینے میں پیش آئی؟", "answer": "رجب المرجب میں۔"},
-    {"id": 18, "question": "زکوٰۃ کس سن ہجری میں فرض ہوئی؟", "answer": "دو ہجری میں۔"},
-    {"id": 19, "question": "خاتم النبیین کسے کہا جاتا ہے؟", "answer": "حضرت محمد صلی اللہ علیہ وسلم کو۔"},
-    {"id": 20, "question": "قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟", "answer": "سورۃ النمل میں۔"},
+    {
+        "id": 1,
+        "question": "نماز میں کتنی بار خارش کرنے سے نماز ٹوٹ جاتی ہے؟",
+        "answer": "تین بار۔",
+        "spoken_q": "سوال نمبر ایک: نماز میں کتنی بار خارش کرنے سے نماز ٹوٹ جاتی ہے؟",
+        "spoken_a": "جواب: تین بار۔",
+    },
+    {
+        "id": 2,
+        "question": "قرآن مجید کی سب سے طویل سورۃ کون سی ہے؟",
+        "answer": "سورۃ البقرۃ۔",
+        "spoken_q": "سوال نمبر دو: قرآن مجید کی سب سے طویل سورۃ کون سی ہے؟",
+        "spoken_a": "جواب: سورۃ البقرۃ۔",
+    },
+    {
+        "id": 3,
+        "question": "قرآن مجید کی سب سے مختصر سورۃ کون سی ہے؟",
+        "answer": "سورۃ الکوثر۔",
+        "spoken_q": "سوال نمبر تین: قرآن مجید کی سب سے مختصر سورۃ کون سی ہے؟",
+        "spoken_a": "جواب: سورۃ الکوثر۔",
+    },
+    {
+        "id": 4,
+        "question": "قرآن مجید میں کل کتنی سورتیں ہیں؟",
+        "answer": "114 سورتیں۔",
+        "spoken_q": "سوال نمبر چار: قرآن مجید میں کل کتنی سورتیں ہیں؟",
+        "spoken_a": "جواب: ایک سو چودہ سورتیں۔",
+    },
+    {
+        "id": 5,
+        "question": "قرآن مجید میں کل کتنے پارے ہیں؟",
+        "answer": "30 پارے۔",
+        "spoken_q": "سوال نمبر پانچ: قرآن مجید میں کل کتنے پارے ہیں؟",
+        "spoken_a": "جواب: تیس پارے۔",
+    },
+    {
+        "id": 6,
+        "question": "اسلام کے کل کتنے ارکان ہیں؟",
+        "answer": "پانچ ارکان۔",
+        "spoken_q": "سوال نمبر چھ: اسلام کے کل کتنے ارکان ہیں؟",
+        "spoken_a": "جواب: پانچ ارکان۔",
+    },
+    {
+        "id": 7,
+        "question": "دن میں فرض نمازوں کی تعداد کتنی ہے؟",
+        "answer": "پانچ نمازیں۔",
+        "spoken_q": "سوال نمبر سات: دن میں فرض نمازوں کی تعداد کتنی ہے؟",
+        "spoken_a": "جواب: پانچ نمازیں۔",
+    },
+    {
+        "id": 8,
+        "question": "سب سے پہلے کون سی وحی نازل ہوئی؟",
+        "answer": "سورۃ العلق کی ابتدائی آیات۔",
+        "spoken_q": "سوال نمبر آٹھ: سب سے پہلے کون سی وحی نازل ہوئی؟",
+        "spoken_a": "جواب: سورۃ العلق کی ابتدائی آیات۔",
+    },
+    {
+        "id": 9,
+        "question": "نبی کریم صلی اللہ علیہ وسلم پر قرآن مجید کتنے عرصے میں نازل ہوا؟",
+        "answer": "تئیس سال میں۔",
+        "spoken_q": "سوال نمبر نو: نبی کریم پر قرآن مجید کتنے عرصے میں نازل ہوا؟",
+        "spoken_a": "جواب: تئیس سال میں۔",
+    },
+    {
+        "id": 10,
+        "question": "ہجرتِ مدینہ کے وقت نبی کریم صلی اللہ علیہ وسلم کے ہمراہ کون تھے؟",
+        "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔",
+        "spoken_q": "سوال نمبر دس: ہجرتِ مدینہ کے وقت نبی کریم کے ساتھ کون تھے؟",
+        "spoken_a": "جواب: حضرت ابوبکر صدیق۔",
+    },
+    {
+        "id": 11,
+        "question": "غزوہ بدر کس ہجری میں پیش آیا؟",
+        "answer": "دو ہجری میں۔",
+        "spoken_q": "سوال نمبر گیارہ: غزوہ بدر کس ہجری میں پیش آیا؟",
+        "spoken_a": "جواب: دو ہجری میں۔",
+    },
+    {
+        "id": 12,
+        "question": "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟",
+        "answer": "حضرت موسیٰ علیہ السلام۔",
+        "spoken_q": "سوال نمبر بارہ: قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟",
+        "spoken_a": "جواب: حضرت موسیٰ۔",
+    },
+    {
+        "id": 13,
+        "question": "وضو کے کتنے فرائض ہیں؟",
+        "answer": "چار فرائض۔",
+        "spoken_q": "سوال نمبر تیرہ: وضو کے کتنے فرائض ہیں؟",
+        "spoken_a": "جواب: چار فرائض۔",
+    },
+    {
+        "id": 14,
+        "question": "غسل کے کتنے فرائض ہیں؟",
+        "answer": "تین فرائض۔",
+        "spoken_q": "سوال نمبر چودہ: غسل کے کتنے فرائض ہیں؟",
+        "spoken_a": "جواب: تین فرائض۔",
+    },
+    {
+        "id": 15,
+        "question": "اسلام کے پہلے خلیفہ کون تھے؟",
+        "answer": "حضرت ابوبکر صدیق رضی اللہ عنہ۔",
+        "spoken_q": "سوال نمبر پندرہ: اسلام کے پہلے خلیفہ کون تھے؟",
+        "spoken_a": "جواب: حضرت ابوبکر صدیق۔",
+    },
+    {
+        "id": 16,
+        "question": "مسجدِ نبوی کس شہر میں واقع ہے؟",
+        "answer": "مدینہ منورہ میں۔",
+        "spoken_q": "سوال نمبر سولہ: مسجدِ نبوی کس شہر میں واقع ہے؟",
+        "spoken_a": "جواب: مدینہ منورہ میں۔",
+    },
+    {
+        "id": 17,
+        "question": "شبِ معراج کس مہینے میں پیش آئی؟",
+        "answer": "رجب المرجب میں۔",
+        "spoken_q": "سوال نمبر سترہ: شبِ معراج کس مہینے میں پیش آئی؟",
+        "spoken_a": "جواب: رجب المرجب میں۔",
+    },
+    {
+        "id": 18,
+        "question": "زکوٰۃ کس سن ہجری میں فرض ہوئی؟",
+        "answer": "دو ہجری میں۔",
+        "spoken_q": "سوال نمبر اٹھارہ: زکوٰۃ کس سن ہجری میں فرض ہوئی؟",
+        "spoken_a": "جواب: دو ہجری میں۔",
+    },
+    {
+        "id": 19,
+        "question": "خاتم النبیین کسے کہا جاتا ہے؟",
+        "answer": "حضرت محمد صلی اللہ علیہ وسلم کو۔",
+        "spoken_q": "سوال نمبر انیس: خاتم النبیین کسے کہا جاتا ہے؟",
+        "spoken_a": "جواب: حضرت محمد کو۔",
+    },
+    {
+        "id": 20,
+        "question": "قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟",
+        "answer": "سورۃ النمل میں۔",
+        "spoken_q": "سوال نمبر بیس: قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟",
+        "spoken_a": "جواب: سورۃ النمل میں۔",
+    },
 ]
 
 
@@ -163,21 +284,17 @@ def make_slide(
     badge_font,
     body_font,
 ):
-    # Rich dark emerald-navy background with colorful top bar & card
     img = Image.new("RGB", (WIDTH, HEIGHT), (10, 31, 38))
     draw = ImageDraw.Draw(img)
 
-    # Top colorful banner
     draw.rectangle([0, 0, WIDTH, 210], fill=(16, 185, 129))
     draw.rectangle([0, 210, WIDTH, 224], fill=(245, 158, 11))
     draw_centered_text(draw, top_heading, WIDTH // 2, 55, header_font, (255, 255, 255))
 
-    # Bottom colorful bar
     draw.rectangle([0, HEIGHT - 150, WIDTH, HEIGHT], fill=(15, 118, 110))
     draw.rectangle([0, HEIGHT - 162, WIDTH, HEIGHT - 150], fill=(245, 158, 11))
     draw_centered_text(draw, "الحمد للہ", WIDTH // 2, HEIGHT - 115, header_font, (254, 243, 199))
 
-    # Main colorful card
     card_left = 44
     card_right = WIDTH - 44
     card_top = 275
@@ -190,7 +307,6 @@ def make_slide(
         width=10,
     )
 
-    # Wide badge so text never clips on left/right
     badge_w = 420
     badge_h = 120
     bx1 = (WIDTH - badge_w) // 2
@@ -204,7 +320,6 @@ def make_slide(
     )
     draw_centered_text(draw, badge_label, WIDTH // 2, by1 + 22, badge_font, (255, 255, 255))
 
-    # Body text inside card
     max_text_w = (card_right - card_left) - 110
     lines = wrap_text(draw, main_text, body_font, max_text_w)
 
@@ -251,7 +366,13 @@ def build_segment_with_audio(
     )
 
 
-def build_silent_pause(img_path: Path, duration_sec: float, out_mp4: Path):
+def build_silent_segment(
+    img_path: Path,
+    duration_sec: float,
+    out_mp4: Path,
+    darken: bool = False,
+):
+    vf = "eq=brightness=-0.05" if darken else "null"
     subprocess.run(
         [
             "ffmpeg", "-y",
@@ -259,7 +380,7 @@ def build_silent_pause(img_path: Path, duration_sec: float, out_mp4: Path):
             "-f", "lavfi", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo",
             "-t", f"{duration_sec:.2f}",
             "-r", str(FPS),
-            "-vf", "eq=brightness=-0.05",
+            "-vf", vf,
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
             "-shortest",
@@ -281,11 +402,11 @@ def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, 
     for q_num, item in enumerate(batch_items, start=1):
         question = item["question"].strip()
         answer = item["answer"].strip()
+        spoken_q = (item.get("spoken_q") or f"سوال نمبر {q_num}: {question}").strip()
+        spoken_a = (item.get("spoken_a") or f"جواب: {answer}").strip()
 
         q_img = batch_work / f"q_{q_num}.png"
         a_img = batch_work / f"a_{q_num}.png"
-        q_tts = batch_work / f"q_{q_num}_voice.mp3"
-        a_tts = batch_work / f"a_{q_num}_voice.mp3"
 
         make_slide(
             "بسم اللہ الرحمن الرحیم",
@@ -308,22 +429,24 @@ def render_multi_qa_video(batch_items: list[dict], batch_num: int, header_font, 
             body_font,
         )
 
-        spoken_q = f"سوال نمبر {q_num}: {question}"
-        spoken_a = f"جواب: {answer}"
-        asyncio.run(generate_tts(spoken_q, q_tts))
-        asyncio.run(generate_tts(spoken_a, a_tts))
-
-        q_dur = get_media_duration(q_tts) + 0.25
-        a_dur = get_media_duration(a_tts) + 0.35
-
         q_clip = batch_work / f"q_{q_num}.mp4"
         p_clip = batch_work / f"p_{q_num}.mp4"
         a_clip = batch_work / f"a_{q_num}.mp4"
 
-        build_segment_with_audio(q_img, q_tts, q_dur, q_clip)
-        build_silent_pause(q_img, PAUSE_SEC, p_clip)
-        build_segment_with_audio(a_img, a_tts, a_dur, a_clip)
+        if USE_VOICE:
+            q_tts = batch_work / f"q_{q_num}_voice.mp3"
+            a_tts = batch_work / f"a_{q_num}_voice.mp3"
+            asyncio.run(generate_tts(spoken_q, q_tts))
+            asyncio.run(generate_tts(spoken_a, a_tts))
+            q_dur = get_media_duration(q_tts) + 0.25
+            a_dur = get_media_duration(a_tts) + 0.35
+            build_segment_with_audio(q_img, q_tts, q_dur, q_clip)
+            build_segment_with_audio(a_img, a_tts, a_dur, a_clip)
+        else:
+            build_silent_segment(q_img, 3.5, q_clip, darken=False)
+            build_silent_segment(a_img, 3.5, a_clip, darken=False)
 
+        build_silent_segment(q_img, PAUSE_SEC, p_clip, darken=True)
         all_clips.extend([q_clip, p_clip, a_clip])
 
     concat_list = batch_work / "concat.txt"
