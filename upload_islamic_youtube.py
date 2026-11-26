@@ -3,10 +3,6 @@ import json
 import os
 import sys
 from datetime import datetime
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 
 SHORT_VIDEO_FILE = "final_islamic_short.mp4"
 LONG_VIDEO_FILE = "final_islamic_long.mp4"
@@ -14,22 +10,9 @@ LONG_META_FILE = "long_meta.json"
 LONG_THUMBNAIL_FILE = "long_thumbnail.jpg"
 
 
-def get_youtube_service():
-    creds = Credentials(
-        token=None,
-        refresh_token=os.environ["YT_REFRESH_TOKEN"],
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.environ["YT_CLIENT_ID"],
-        client_secret=os.environ["YT_CLIENT_SECRET"],
-        scopes=["https://www.googleapis.com/auth/youtube.upload"],
-    )
-    creds.refresh(Request())
-    return build("youtube", "v3", credentials=creds)
-
-
 def parse_args():
-    parser = argparse.ArgumentParser(description="Upload Islamic video to YouTube.")
-    parser.add_argument("--long", action="store_true", help="Upload generated long-form Islamic video")
+    parser = argparse.ArgumentParser(description="Prepare Islamic video without auto-uploading to YouTube.")
+    parser.add_argument("--long", action="store_true", help="Use generated long-form Islamic video metadata")
     return parser.parse_args()
 
 
@@ -70,7 +53,6 @@ def main():
             tags = ["islamic story urdu", "urdu waqiat", "islamic reminder", "storybox"]
 
         thumb_path = str(meta_data.get("thumbnail_path") or LONG_THUMBNAIL_FILE)
-        has_synthetic_media = True
     else:
         video_file = SHORT_VIDEO_FILE
         if not os.path.exists(video_file):
@@ -93,43 +75,12 @@ def main():
             "shorts",
         ]
         thumb_path = ""
-        has_synthetic_media = False
 
-    youtube = get_youtube_service()
-
-    body = {
-        "snippet": {
-            "title": title,
-            "description": description,
-            "tags": tags,
-            "categoryId": "22",
-        },
-        "status": {
-            "privacyStatus": "public",
-            "selfDeclaredMadeForKids": False,
-        },
-    }
-
-    if has_synthetic_media:
-        body["status"]["containsSyntheticMedia"] = True
-
-    media = MediaFileUpload(video_file, mimetype="video/mp4", resumable=True)
-    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-
-    response = None
-    while response is None:
-        _, response = request.next_chunk()
-
-    video_id = response.get("id")
-    print("Uploaded successfully! Video ID:", video_id)
-
-    if args.long and video_id and thumb_path and os.path.exists(thumb_path):
-        try:
-            thumb_media = MediaFileUpload(thumb_path, mimetype="image/jpeg", resumable=False)
-            youtube.thumbnails().set(videoId=video_id, media_body=thumb_media).execute()
-            print("Thumbnail uploaded successfully!")
-        except Exception as e:
-            print(f"Warning: thumbnail upload skipped/failed: {e}")
+    print("Auto-upload is disabled. Video was not uploaded to YouTube.")
+    print(f"File: {video_file}")
+    print(f"Title: {title}")
+    if args.long and thumb_path:
+        print(f"Thumbnail path: {thumb_path}")
 
 
 if __name__ == "__main__":
