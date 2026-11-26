@@ -27,7 +27,7 @@ jobs:
           pip install --upgrade pip
           pip install pillow edge-tts google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
-      - name: Generate 30s+ video with 12 clips and Urdu voice
+      - name: Generate Islamic quiz reel
         env:
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
