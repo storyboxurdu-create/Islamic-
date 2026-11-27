@@ -1,5 +1,5 @@
 {
-  "run_count": 6,
+  "run_count": 7,
   "seen_questions": [
     "وضو کے فرائض کتنے ہیں؟",
     "غسل کے فرائض کتنے ہیں؟",
@@ -30,7 +30,12 @@
     "غزوہِ تبوک کس سن ہجری میں پیش آیا؟",
     "قرآن مجید میں سب سے طویل آیت کون سی ہے؟",
     "نمازِ جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
-    "صحابہ کرام میں سب سے پہلے کس نے ہجرتِ حبشہ کی قیادت کی؟"
+    "صحابہ کرام میں سب سے پہلے کس نے ہجرتِ حبشہ کی قیادت کی؟",
+    "قرآن مجید کی کس سورۃ میں لفظ 'الرحمٰن' بطورِ خاص بار بار آیا ہے؟",
+    "حج کے دوران یومِ عرفہ کس تاریخ کو ہوتا ہے؟",
+    "علمِ اصولِ فقہ میں 'اجماع' سے کیا مراد ہے؟",
+    "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ مرتبہ آیا ہے؟",
+    "فتحِ مکہ کس سن ہجری میں ہوئی؟"
   ],
   "history": [
     {
@@ -260,6 +265,51 @@
           "answer_en": "Uthman ibn Affan (may Allah be pleased with him) along with his spouse.",
           "spoken_q": "سوال: صحابہ کرام میں سب سے پہلے کس نے ہجرت حبشہ کی قیادت کی؟",
           "spoken_a": "جواب: حضرت عثمان بن عفان رضی اللہ عنہ نے اپنی اہلیہ کے ہمراہ۔"
+        }
+      ]
+    },
+    {
+      "run_no": 7,
+      "items": [
+        {
+          "question": "قرآن مجید کی کس سورۃ میں لفظ 'الرحمٰن' بطورِ خاص بار بار آیا ہے؟",
+          "question_en": "In which Surah is the refrain mentioning 'Ar-Rahman' repeated across verses?",
+          "answer": "سورۃ الرحمٰن میں۔",
+          "answer_en": "In Surah Ar-Rahman.",
+          "spoken_q": "سوال: قرآن مجید کی کس سورہ میں لفظ رحمن بار بار آیا ہے؟",
+          "spoken_a": "جواب: سورہ رحمن میں۔"
+        },
+        {
+          "question": "حج کے دوران یومِ عرفہ کس تاریخ کو ہوتا ہے؟",
+          "question_en": "On which date of Dhul-Hijjah does the Day of Arafah fall during Hajj?",
+          "answer": "نو (9) ذوالحجہ کو۔",
+          "answer_en": "On the 9th of Dhul-Hijjah.",
+          "spoken_q": "سوال: حج کے دوران یوم عرفہ کس تاریخ کو ہوتا ہے؟",
+          "spoken_a": "جواب: نو ذوالحجہ کو۔"
+        },
+        {
+          "question": "علمِ اصولِ فقہ میں 'اجماع' سے کیا مراد ہے؟",
+          "question_en": "In Usul al-Fiqh (principles of jurisprudence), what does 'Ijma' mean?",
+          "answer": "کسی شرعی مسئلے پر امت کے مجتہدین کا ایک دور میں اتفاق۔",
+          "answer_en": "Consensus of the qualified jurists (Mujtahids) of the Ummah in an era on a Shariah ruling.",
+          "spoken_q": "سوال: علم اصول فقہ میں اجماع سے کیا مراد ہے؟",
+          "spoken_a": "جواب: کسی شرعی مسیلے پر امت کے مجتہدین کا ایک دور میں اتفاق۔"
+        },
+        {
+          "question": "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ مرتبہ آیا ہے؟",
+          "question_en": "Which Prophet is mentioned most frequently by name in the Quran?",
+          "answer": "حضرت موسیٰ علیہ السلام۔",
+          "answer_en": "Prophet Musa (Moses, peace be upon him).",
+          "spoken_q": "سوال: قرآن مجید میں کس نبی کا ذکر سب سے زیادہ بار آیا ہے؟",
+          "spoken_a": "جواب: حضرت موسی علیہ السلام کا۔"
+        },
+        {
+          "question": "فتحِ مکہ کس سن ہجری میں ہوئی؟",
+          "question_en": "In which Hijri year did the Conquest of Makkah occur?",
+          "answer": "آٹھ (8) ہجری میں۔",
+          "answer_en": "In 8 AH.",
+          "spoken_q": "سوال: فتح مکہ کس سن ہجری میں ہویی؟",
+          "spoken_a": "جواب: آٹھ ہجری میں۔"
         }
       ]
     }
