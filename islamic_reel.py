@@ -4,8 +4,6 @@ import os
 import re
 import shutil
 import subprocess
-import urllib.error
-import urllib.request
 from pathlib import Path
 import edge_tts
 from PIL import Image, ImageDraw, ImageFont
@@ -25,29 +23,6 @@ HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
 OUTPUT_DIR = Path("output_reels")
 WORK_DIR = Path("work_frames")
-
-FALLBACK_TOPICS = [
-    ("وضو کے فرائض کتنے ہیں؟", "چار فرائض۔"),
-    ("غسل کے فرائض کتنے ہیں؟", "تین فرائض۔"),
-    ("اسلام کے پہلے خلیفہ کون تھے؟", "حضرت ابوبکر صدیق رضی اللہ عنہ۔"),
-    ("مسجدِ نبوی کس شہر میں واقع ہے؟", "مدینہ منورہ میں۔"),
-    ("شبِ معراج کس مہینے میں پیش آئی؟", "رجب المرجب میں۔"),
-    ("زکوٰۃ کس سن ہجری میں فرض ہوئی؟", "دو ہجری میں۔"),
-    ("خاتم النبیین کسے کہا جاتا ہے؟", "حضرت محمد صلی اللہ علیہ وسلم کو۔"),
-    ("قرآن مجید کی کس سورۃ میں بسم اللہ دو بار آئی ہے؟", "سورۃ النمل میں۔"),
-    ("نمازِ فجر کی کل کتنی رکعتیں ہیں؟", "چار رکعتیں۔"),
-    ("نمازِ مغرب کی کل کتنی رکعتیں ہیں؟", "سات رکعتیں۔"),
-    ("قرآن مجید کی کس سورۃ کو قلبِ قرآن کہا جاتا ہے؟", "سورۃ یٰس کو۔"),
-    ("جنت کے دروازوں کی تعداد کتنی ہے؟", "آٹھ دروازے۔"),
-    ("جہنم کے دروازوں کی تعداد کتنی ہے؟", "سات دروازے۔"),
-    ("عشرہ مبشرہ میں کتنے صحابہ کرام شامل ہیں؟", "دس صحابہ کرام۔"),
-    ("روزے کس سن ہجری میں فرض ہوئے؟", "دو ہجری میں۔"),
-    ("قرآن مجید کی مکی سورتوں کی تعداد کتنی ہے؟", "چھیاسی سورتیں۔"),
-    ("غزوہ بدر کس ہجری میں پیش آیا؟", "دو ہجری میں۔"),
-    ("قرآن مجید میں کل کتنے پارے ہیں؟", "تیس پارے۔"),
-    ("قرآن مجید میں کل کتنی سورتیں ہیں؟", "ایک سو چودہ سورتیں۔"),
-    ("اسلام کے کل کتنے ارکان ہیں؟", "پانچ ارکان۔"),
-]
 
 
 def get_urdu_font(size: int):
@@ -127,16 +102,24 @@ def _extract_json_array(raw_text: str) -> list[dict]:
     return parsed
 
 
+def _normalize_q(q: str) -> str:
+    return re.sub(r"\s+", " ", q).strip().lower()
+
+
 def generate_qa_via_gemini(count: int, seen_questions: list[str], run_num: int) -> list[dict]:
+    import urllib.request
+
     api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY not set")
+        raise RuntimeError("GEMINI_API_KEY set nahi hai; unique sawal generate karne ke liye key zaroori hai.")
 
-    avoid_sample = " | ".join(seen_questions[-40:])
+    avoid_sample = " | ".join(seen_questions[-80:])
     prompt = (
-        f"Generate exactly {count} new, accurate, short Islamic quiz question-and-answer items in Urdu for a YouTube Short.\n"
+        f"Generate exactly {count} completely new, unique, accurate, and demanding Islamic quiz "
+        "question-and-answer items in Urdu for a YouTube Short (Tafseer, Quranic precision, "
+        "Seerat, Fiqh rulings, and Hadith terminology—avoid common beginner questions).\n"
         f"Batch number: {run_num}.\n"
-        f"Do NOT repeat these questions: {avoid_sample if avoid_sample else 'none'}.\n"
+        f"Do NOT repeat or rephrase any of these questions: {avoid_sample if avoid_sample else 'none'}.\n"
         "Return ONLY a valid JSON array with objects having exact keys: "
         '"question", "answer", "spoken_q", "spoken_a".\n'
         "Keep question and answer concise so they fit cleanly on a mobile screen."
@@ -145,7 +128,7 @@ def generate_qa_via_gemini(count: int, seen_questions: list[str], run_num: int) 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.8},
+        "generationConfig": {"temperature": 0.9},
     }
 
     req = urllib.request.Request(
@@ -163,7 +146,10 @@ def generate_qa_via_gemini(count: int, seen_questions: list[str], run_num: int) 
     text_out = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
     raw_items = _extract_json_array(text_out)
 
+    seen_norm = {_normalize_q(sq) for sq in seen_questions}
+    batch_norm = set()
     valid_items = []
+
     for obj in raw_items:
         if not isinstance(obj, dict):
             continue
@@ -171,6 +157,10 @@ def generate_qa_via_gemini(count: int, seen_questions: list[str], run_num: int) 
         a = str(obj.get("answer") or "").strip()
         if not q or not a:
             continue
+        q_norm = _normalize_q(q)
+        if q_norm in seen_norm or q_norm in batch_norm:
+            continue
+        batch_norm.add(q_norm)
         sq = str(obj.get("spoken_q") or f"سوال: {q}").strip()
         sa = str(obj.get("spoken_a") or f"جواب: {a}").strip()
         valid_items.append({
@@ -181,45 +171,18 @@ def generate_qa_via_gemini(count: int, seen_questions: list[str], run_num: int) 
         })
 
     if len(valid_items) < count:
-        raise ValueError(f"Expected {count} items, got {len(valid_items)}")
+        raise ValueError(f"Expected {count} unique items, got {len(valid_items)}")
     return valid_items[:count]
 
 
 def generate_unique_batch(count: int, state: dict) -> list[dict]:
     run_num = state["run_count"] + 1
-    seen = set(state["seen_questions"])
+    seen_questions = state["seen_questions"]
 
-    try:
-        items = generate_qa_via_gemini(count, state["seen_questions"], run_num)
-        fresh = []
-        for it in items:
-            if it["question"] not in seen:
-                fresh.append(it)
-                seen.add(it["question"])
-        if len(fresh) == count:
-            return fresh
-    except (urllib.error.URLError, TimeoutError, ValueError, KeyError, json.JSONDecodeError, RuntimeError) as exc:
-        print(f"Auto-API fallback triggered: {exc}")
-
-    # Fresh dynamic fallback generator without a static script file
-    fresh = []
-    offset = state["run_count"] * count
-    idx = 0
-    while len(fresh) < count:
-        base_q, base_a = FALLBACK_TOPICS[(offset + idx) % len(FALLBACK_TOPICS)]
-        q_num = offset + idx + 1
-        q_text = f"{base_q} (#{q_num})" if (offset + idx) >= len(FALLBACK_TOPICS) else base_q
-        if q_text not in seen:
-            fresh.append({
-                "question": q_text,
-                "answer": base_a,
-                "spoken_q": f"سوال: {base_q}",
-                "spoken_a": f"جواب: {base_a}",
-            })
-            seen.add(q_text)
-        idx += 1
-
-    return fresh
+    items = generate_qa_via_gemini(count, seen_questions, run_num)
+    if len(items) != count:
+        raise RuntimeError("Muntakhab unique sawalat mukammal nahi ho sakay.")
+    return items
 
 
 async def generate_tts(text: str, out_mp3: Path):
@@ -465,7 +428,7 @@ def main():
     })
     save_history_state(HISTORY_FILE, state)
 
-    print(f"Generated run {run_num} with {len(batch_items)} fresh Q&A items: {created}")
+    print(f"Generated run {run_num} with {len(batch_items)} unique Q&A items: {created}")
 
 
 if __name__ == "__main__":
