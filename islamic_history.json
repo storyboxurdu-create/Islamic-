@@ -1,5 +1,5 @@
 {
-  "run_count": 9,
+  "run_count": 10,
   "seen_questions": [
     "وضو کے فرائض کتنے ہیں؟",
     "غسل کے فرائض کتنے ہیں؟",
@@ -45,7 +45,12 @@
     "غزوہ تبوک کس سن ہجری میں پیش آیا؟",
     "نماز جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
     "صحابہ کرام میں سب سے پہلے کس نے ہجرت حبشہ کی قیادت کی؟",
-    "قرآن مجید کی کس سورہ میں لفظ رحمن بار بار آیا ہے؟"
+    "قرآن مجید کی کس سورہ میں لفظ رحمن بار بار آیا ہے؟",
+    "حج کے دوران یوم عرفہ کس تاریخ کو ہوتا ہے؟",
+    "علم اصول فقہ میں اجماع سے کیا مراد ہے؟",
+    "فتح مکہ کس سن ہجری میں ہوئی؟",
+    "قرآن مجید کی کس سورہ کی ہر آیت میں لفظ اللہ آیا ہے؟ (2)",
+    "صلح حدیبیہ کس ہجری میں واقع ہوئی؟ (2)"
   ],
   "history": [
     {
@@ -410,6 +415,51 @@
           "answer_en": "In Surah Ar-Rahman.",
           "spoken_q": "سوال: قرآن مجید کی کس سورہ میں لفظ رحمن بار بار آیا ہے؟",
           "spoken_a": "جواب: سورہ رحمن میں۔"
+        }
+      ]
+    },
+    {
+      "run_no": 10,
+      "items": [
+        {
+          "question": "حج کے دوران یوم عرفہ کس تاریخ کو ہوتا ہے؟",
+          "question_en": "On which date of Dhul-Hijjah is the Day of Arafah?",
+          "answer": "نو ذوالحجہ کو۔",
+          "answer_en": "On the 9th of Dhul-Hijjah.",
+          "spoken_q": "سوال: حج کے دوران یوم عرفہ کس تاریخ کو ہوتا ہے؟",
+          "spoken_a": "جواب: نو ذوالحجہ کو۔"
+        },
+        {
+          "question": "علم اصول فقہ میں اجماع سے کیا مراد ہے؟",
+          "question_en": "In Usul al-Fiqh, what does Ijma mean?",
+          "answer": "کسی شرعی مسئلے پر امت کے مجتہدین کا ایک دور میں اتفاق۔",
+          "answer_en": "Consensus of the qualified jurists of the Ummah in an era on a ruling.",
+          "spoken_q": "سوال: علم اصول فقہ میں اجماع سے کیا مراد ہے؟",
+          "spoken_a": "جواب: کسی شرعی مسیلے پر امت کے مجتہدین کا ایک دور میں اتفاق۔"
+        },
+        {
+          "question": "فتح مکہ کس سن ہجری میں ہوئی؟",
+          "question_en": "In which Hijri year did the Conquest of Makkah occur?",
+          "answer": "آٹھ ہجری میں۔",
+          "answer_en": "In 8 AH.",
+          "spoken_q": "سوال: فتح مکہ کس سن ہجری میں ہویی؟",
+          "spoken_a": "جواب: آٹھ ہجری میں۔"
+        },
+        {
+          "question": "قرآن مجید کی کس سورہ کی ہر آیت میں لفظ اللہ آیا ہے؟ (2)",
+          "question_en": "In which Surah of the Quran does the word Allah appear in every verse?",
+          "answer": "سورہ المجادلہ۔",
+          "answer_en": "Surah Al-Mujadila.",
+          "spoken_q": "سوال: قرآن مجید کی کس سورہ کی ہر آیت میں لفظ اللہ آیا ہے؟",
+          "spoken_a": "جواب: سورہ المجادلہ۔"
+        },
+        {
+          "question": "صلح حدیبیہ کس ہجری میں واقع ہوئی؟ (2)",
+          "question_en": "In which Hijri year did the Treaty of Hudaybiyyah take place?",
+          "answer": "چھ ہجری میں۔",
+          "answer_en": "In 6 AH.",
+          "spoken_q": "سوال: صلح حدیبیہ کس ہجری میں واقع ہویی؟",
+          "spoken_a": "جواب: چھ ہجری میں۔"
         }
       ]
     }
