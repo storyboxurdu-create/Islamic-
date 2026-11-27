@@ -21,6 +21,14 @@ URDU_VOICE = "ur-PK-AsadNeural"
 VOICE_RATE = "+4%"
 CURTAIN_OPEN_SEC = 0.45
 
+NAMAZ_TIMINGS = [
+    ("Fajr", "05:15 AM"),
+    ("Zuhr", "12:15 PM"),
+    ("Asr", "03:45 PM"),
+    ("Maghrib", "05:05 PM"),
+    ("Isha", "07:00 PM"),
+]
+
 HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
 OUTPUT_DIR = Path("output_reels")
@@ -151,7 +159,6 @@ UNIQUE_QA_BANK = [
 
 
 def safe_display_text(text: str) -> str:
-    """Remove invisible/format characters that render as missing-glyph boxes in Pillow."""
     cleaned = re.sub(r"[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]", "", text)
     cleaned = cleaned.replace("صراحتاً", "صراحتا").replace("اً", "ا")
     return re.sub(r"\s+", " ", cleaned).strip()
@@ -188,7 +195,6 @@ def _has_glyph(font, ch: str) -> bool:
 
 
 def sanitize_for_font(text: str, font) -> str:
-    """Drop characters that have no glyph in the chosen font so boxes never appear."""
     out = []
     for ch in text:
         if _has_glyph(font, ch):
@@ -198,9 +204,10 @@ def sanitize_for_font(text: str, font) -> str:
 
 def get_urdu_font(size: int):
     candidates = [
-        "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
-        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoNastaliqUrdu-Regular.ttf",
+        "/usr/share/fonts/opentype/noto/NotoNastaliqUrdu-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "C:/Windows/Fonts/arial.ttf",
     ]
@@ -210,12 +217,20 @@ def get_urdu_font(size: int):
     return ImageFont.load_default()
 
 
-def get_latin_font(size: int):
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "C:/Windows/Fonts/arial.ttf",
-    ]
+def get_latin_font(size: int, bold: bool = False):
+    candidates = (
+        [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "C:/Windows/Fonts/arialbd.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+        ]
+        if bold
+        else [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+        ]
+    )
     for path in candidates:
         if os.path.exists(path):
             return ImageFont.truetype(path, size=size)
@@ -242,7 +257,15 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> lis
     return lines
 
 
-def draw_centered_text(draw: ImageDraw.ImageDraw, text: str, center_x: int, top_y: int, font, fill):
+def draw_centered_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    center_x: int,
+    top_y: int,
+    font,
+    fill,
+    shadow: tuple[int, int, int] | None = None,
+):
     safe_txt = sanitize_for_font(safe_display_text(text), font)
     if not safe_txt:
         return 0
@@ -251,6 +274,8 @@ def draw_centered_text(draw: ImageDraw.ImageDraw, text: str, center_x: int, top_
     h = bbox[3] - bbox[1]
     x = center_x - (w // 2) - bbox[0]
     y = top_y - bbox[1]
+    if shadow is not None:
+        draw.text((x + 2, y + 2), safe_txt, font=font, fill=shadow)
     draw.text((x, y), safe_txt, font=font, fill=fill)
     return h
 
@@ -329,76 +354,153 @@ def get_media_duration(media_path: Path) -> float:
         return 1.2
 
 
-def draw_islamic_set_background(draw: ImageDraw.ImageDraw, t_sec: float, darken: bool = False):
-    """Draw a unique Islamic arch & hanging lantern set in the scene background."""
+def draw_namaz_clock_set(
+    draw: ImageDraw.ImageDraw,
+    t_sec: float,
+    q_num: int,
+    small_font,
+    darken: bool = False,
+):
+    """Draw a live moving clock + fixed 5 Namaz timings board on the left set."""
     wall_col = (10, 27, 34) if darken else (13, 36, 45)
-    arch_col = (18, 48, 58) if darken else (22, 60, 72)
-    gold_col = (165, 112, 18) if darken else (217, 155, 38)
+    panel_col = (17, 45, 55) if darken else (22, 58, 70)
+    gold_col = (170, 118, 22) if darken else (225, 165, 42)
+    face_col = (244, 240, 228) if darken else (255, 252, 242)
 
-    draw.rectangle([0, 224, WIDTH, HEIGHT - 162], fill=wall_col)
+    draw.rectangle([0, 214, WIDTH, HEIGHT - 168], fill=wall_col)
 
-    # Decorative Islamic arch niche on left set area
-    draw.rounded_rectangle([24, 270, 245, HEIGHT - 235], radius=105, fill=arch_col, outline=gold_col, width=4)
+    # Left panel container for Clock + Namaz Timings
+    panel_x1 = 18
+    panel_x2 = 248
+    panel_y1 = 242
+    panel_y2 = HEIGHT - 340
+    draw.rounded_rectangle(
+        [panel_x1, panel_y1, panel_x2, panel_y2],
+        radius=24,
+        fill=panel_col,
+        outline=gold_col,
+        width=3,
+    )
 
-    # Hanging lantern (qandeel) with subtle gentle sway
-    sway = int(4 * math.sin(t_sec * 2.0))
-    lx = 135 + sway
-    ly = 335
-    draw.line([(135, 224), (lx, ly)], fill=gold_col, width=4)
-    draw.polygon([(lx - 18, ly + 16), (lx + 18, ly + 16), (lx + 24, ly + 52), (lx - 24, ly + 52)], fill=(245, 190, 66) if not darken else (175, 130, 35), outline=gold_col)
-    draw.polygon([(lx - 24, ly + 52), (lx + 24, ly + 52), (lx, ly + 74)], fill=gold_col)
+    # Analog clock with continuously moving hands
+    cx = (panel_x1 + panel_x2) // 2
+    cy = panel_y1 + 92
+    r = 66
+    draw.ellipse([cx - r - 4, cy - r - 4, cx + r + 4, cy + r + 4], fill=gold_col)
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=face_col, outline=(30, 41, 59), width=3)
 
-    # Small book stand (rehal) near bottom of left set
-    rx = 135
-    ry = HEIGHT - 255
-    draw.polygon([(rx - 38, ry), (rx + 38, ry), (rx + 26, ry - 22), (rx - 26, ry - 22)], fill=(120, 72, 28))
-    draw.rounded_rectangle([rx - 30, ry - 44, rx + 30, ry - 20], radius=6, fill=(245, 240, 220), outline=gold_col, width=2)
+    # Hour tick marks
+    for h_idx in range(12):
+        ang = math.radians(h_idx * 30 - 90)
+        x_in = cx + int((r - 12) * math.cos(ang))
+        y_in = cy + int((r - 12) * math.sin(ang))
+        x_out = cx + int((r - 4) * math.cos(ang))
+        y_out = cy + int((r - 4) * math.sin(ang))
+        draw.line([(x_in, y_in), (x_out, y_out)], fill=(30, 41, 59), width=2)
+
+    # Moving hour, minute, and second hands
+    sec_angle = math.radians((t_sec * 60.0) - 90.0)
+    min_angle = math.radians((t_sec * 6.0) - 90.0)
+    hr_angle = math.radians(((q_num * 2.0) + (t_sec * 0.5)) * 30.0 - 90.0)
+
+    draw.line(
+        [(cx, cy), (cx + int((r * 0.48) * math.cos(hr_angle)), cy + int((r * 0.48) * math.sin(hr_angle)))],
+        fill=(15, 23, 42),
+        width=5,
+    )
+    draw.line(
+        [(cx, cy), (cx + int((r * 0.70) * math.cos(min_angle)), cy + int((r * 0.70) * math.sin(min_angle)))],
+        fill=(15, 118, 110),
+        width=4,
+    )
+    draw.line(
+        [(cx, cy), (cx + int((r * 0.80) * math.cos(sec_angle)), cy + int((r * 0.80) * math.sin(sec_angle)))],
+        fill=(185, 28, 28),
+        width=2,
+    )
+    draw.ellipse([cx - 5, cy - 5, cx + 5, cy + 5], fill=gold_col)
+
+    # Namaz timings title
+    title_y = cy + r + 18
+    draw_centered_text(draw, "NAMAZ TIMINGS", cx, title_y, small_font, (254, 243, 199))
+
+    # 5 Fixed Namaz rows
+    row_y = title_y + 38
+    active_idx = (q_num - 1) % len(NAMAZ_TIMINGS)
+    for idx, (prayer_name, prayer_time) in enumerate(NAMAZ_TIMINGS):
+        is_active = idx == active_idx
+        box_fill = (16, 185, 129) if (is_active and not darken) else ((15, 118, 110) if is_active else (14, 42, 52))
+        txt_col = (255, 255, 255) if is_active else (226, 232, 240)
+        draw.rounded_rectangle(
+            [panel_x1 + 10, row_y, panel_x2 - 10, row_y + 62],
+            radius=12,
+            fill=box_fill,
+            outline=gold_col if is_active else (51, 85, 97),
+            width=2,
+        )
+        draw.text((panel_x1 + 18, row_y + 8), prayer_name, font=small_font, fill=txt_col)
+        draw.text((panel_x1 + 18, row_y + 32), prayer_time, font=small_font, fill=txt_col)
+        row_y += 72
 
 
-def draw_molvi_kurta_shalwar_topi(
+def draw_realistic_molvi(
     draw: ImageDraw.ImageDraw,
     base_x: int,
     base_y: int,
     t_sec: float,
 ):
-    """Draw a calm, dignified Molvi wearing Kurta, Shalwar, and Topi (skullcap)."""
-    breath_y = int(2 * math.sin(t_sec * 2.4))
+    """Draw a more realistic, shaded Molvi character in Kurta, Shalwar, and Topi."""
+    breath_y = int(1.5 * math.sin(t_sec * 2.2))
     bx = base_x
     by = base_y + breath_y
 
-    # Floor shadow
-    draw.ellipse([bx - 68, base_y - 8, bx + 68, base_y + 16], fill=(6, 18, 23))
+    # Ground contact shadow
+    draw.ellipse([bx - 64, base_y - 6, bx + 64, base_y + 16], fill=(5, 16, 20))
 
-    # Shalwar (loose traditional trousers)
-    draw.polygon([(bx - 42, by - 145), (bx - 8, by - 145), (bx - 16, base_y), (bx - 48, base_y)], fill=(238, 236, 226))
-    draw.polygon([(bx + 8, by - 145), (bx + 42, by - 145), (bx + 48, base_y), (bx + 16, base_y)], fill=(238, 236, 226))
+    # Shalwar with shaded pleats
+    draw.polygon([(bx - 40, by - 142), (bx - 6, by - 142), (bx - 16, base_y), (bx - 46, base_y)], fill=(224, 220, 206))
+    draw.line([(bx - 28, by - 135), (bx - 32, base_y - 4)], fill=(178, 172, 154), width=2)
+    draw.polygon([(bx + 6, by - 142), (bx + 40, by - 142), (bx + 46, base_y), (bx + 16, base_y)], fill=(236, 232, 218))
+    draw.line([(bx + 24, by - 135), (bx + 28, base_y - 4)], fill=(185, 180, 162), width=2)
 
-    # Peshawari / dark chappal sandals
-    draw.rounded_rectangle([bx - 52, base_y - 14, bx - 12, base_y + 4], radius=7, fill=(68, 38, 18))
-    draw.rounded_rectangle([bx + 12, base_y - 14, bx + 52, base_y + 4], radius=7, fill=(68, 38, 18))
+    # Footwear
+    draw.rounded_rectangle([bx - 50, base_y - 13, bx - 12, base_y + 4], radius=7, fill=(56, 30, 14))
+    draw.rounded_rectangle([bx + 12, base_y - 13, bx + 50, base_y + 4], radius=7, fill=(56, 30, 14))
 
-    # Long Kurta + open waistcoat/chadar accent
-    draw.rounded_rectangle([bx - 48, by - 285, bx + 48, by - 130], radius=18, fill=(248, 246, 238), outline=(180, 140, 60), width=3)
-    draw.rounded_rectangle([bx - 44, by - 282, bx + 44, by - 175], radius=14, fill=(20, 92, 82))
+    # Shaded Kurta + open Islamic waistcoat/chadar
+    draw.rounded_rectangle([bx - 46, by - 280, bx + 46, by - 128], radius=18, fill=(242, 238, 224), outline=(150, 120, 62), width=3)
+    draw.line([(bx, by - 275), (bx, by - 135)], fill=(195, 188, 170), width=2)
+    draw.rounded_rectangle([bx - 43, by - 278, bx + 16, by - 172], radius=14, fill=(17, 78, 70))
+    draw.rounded_rectangle([bx + 18, by - 278, bx + 43, by - 172], radius=14, fill=(14, 65, 58))
 
-    # Calm hands resting gently (no stick waving)
-    draw.line([(bx - 44, by - 255), (bx - 56, by - 185)], fill=(248, 246, 238), width=16)
-    draw.ellipse([bx - 64, by - 192, bx - 48, by - 176], fill=(244, 185, 128))
+    # Arms & hands with subtle skin shading
+    draw.line([(bx - 43, by - 250), (bx - 54, by - 182)], fill=(232, 226, 210), width=15)
+    draw.ellipse([bx - 62, by - 189, bx - 46, by - 173], fill=(224, 162, 106), outline=(125, 76, 36), width=2)
 
-    draw.line([(bx + 44, by - 255), (bx + 56, by - 185)], fill=(248, 246, 238), width=16)
-    draw.ellipse([bx + 48, by - 192, bx + 64, by - 176], fill=(244, 185, 128))
+    draw.line([(bx + 43, by - 250), (bx + 54, by - 182)], fill=(232, 226, 210), width=15)
+    draw.ellipse([bx + 46, by - 189, bx + 62, by - 173], fill=(224, 162, 106), outline=(125, 76, 36), width=2)
 
-    # Head & beard (calm expression, no rapid mouth jitter)
+    # Shaded face, eyebrows, nose bridge, beard & topi
     hx = bx
-    hy = by - 335
-    draw.ellipse([hx - 38, hy - 40, hx + 38, hy + 40], fill=(244, 185, 128), outline=(110, 65, 30), width=2)
-    draw.polygon([(hx - 32, hy + 4), (hx + 32, hy + 4), (hx + 22, hy + 46), (hx - 22, hy + 46)], fill=(65, 72, 80))
-    draw.ellipse([hx - 16, hy - 8, hx - 7, hy + 1], fill=(20, 24, 28))
-    draw.ellipse([hx + 7, hy - 8, hx + 16, hy + 1], fill=(20, 24, 28))
-    draw.line([(hx - 8, hy + 14), (hx + 8, hy + 14)], fill=(110, 65, 30), width=2)
+    hy = by - 332
+    draw.ellipse([hx - 36, hy - 38, hx + 36, hy + 38], fill=(228, 166, 110), outline=(115, 68, 32), width=2)
+    # Subtle cheek/jaw shadow
+    draw.pieslice([hx - 36, hy - 38, hx + 36, hy + 38], start=15, end=165, fill=(208, 145, 92))
+    # Eyebrows & eyes
+    draw.line([(hx - 21, hy - 14), (hx - 6, hy - 16)], fill=(45, 35, 28), width=3)
+    draw.line([(hx + 6, hy - 16), (hx + 21, hy - 14)], fill=(45, 35, 28), width=3)
+    draw.ellipse([hx - 16, hy - 8, hx - 8, hy], fill=(24, 24, 24))
+    draw.ellipse([hx + 8, hy - 8, hx + 16, hy], fill=(24, 24, 24))
+    # Nose & calm lips
+    draw.line([(hx, hy - 8), (hx - 2, hy + 5)], fill=(140, 86, 44), width=2)
+    draw.line([(hx - 8, hy + 13), (hx + 8, hy + 13)], fill=(115, 64, 34), width=2)
+    # Full shaded beard
+    draw.polygon([(hx - 31, hy + 4), (hx + 31, hy + 4), (hx + 20, hy + 46), (hx - 20, hy + 46)], fill=(52, 56, 62))
+    draw.line([(hx, hy + 14), (hx, hy + 43)], fill=(34, 38, 44), width=2)
 
-    # Topi (white/cream skullcap)
-    draw.rounded_rectangle([hx - 38, hy - 58, hx + 38, hy - 26], radius=16, fill=(255, 255, 255), outline=(217, 155, 38), width=2)
+    # Embroidered skullcap (Topi)
+    draw.rounded_rectangle([hx - 36, hy - 55, hx + 36, hy - 25], radius=15, fill=(248, 246, 240), outline=(198, 142, 34), width=2)
+    draw.line([(hx - 28, hy - 33), (hx + 28, hy - 33)], fill=(198, 142, 34), width=2)
 
 
 def draw_curtains_overlay(draw: ImageDraw.ImageDraw, open_progress: float):
@@ -411,8 +513,8 @@ def draw_curtains_overlay(draw: ImageDraw.ImageDraw, open_progress: float):
 
     folds = 7
     fold_w = max(1, cur_w // folds)
-    top_y = 224
-    bot_y = HEIGHT - 162
+    top_y = 214
+    bot_y = HEIGHT - 168
 
     for i in range(folds):
         x1 = i * fold_w
@@ -447,6 +549,8 @@ def make_slide(
     badge_font,
     body_font,
     sub_font,
+    clock_small_font,
+    q_num: int = 1,
     t_sec: float = 0.0,
     curtain_progress: float = 1.0,
     darken: bool = False,
@@ -457,19 +561,35 @@ def make_slide(
     # Top & bottom bars
     draw.rectangle([0, 0, WIDTH, 200], fill=(16, 185, 129))
     draw.rectangle([0, 200, WIDTH, 214], fill=(245, 158, 11))
-    draw_centered_text(draw, top_heading, WIDTH // 2, 50, header_font, (255, 255, 255))
+    draw_centered_text(
+        draw,
+        top_heading,
+        WIDTH // 2,
+        42,
+        header_font,
+        (255, 255, 255),
+        shadow=(6, 95, 70),
+    )
 
     draw.rectangle([0, HEIGHT - 155, WIDTH, HEIGHT], fill=(15, 118, 110))
     draw.rectangle([0, HEIGHT - 168, WIDTH, HEIGHT - 155], fill=(245, 158, 11))
-    draw_centered_text(draw, "الحمد للہ", WIDTH // 2, HEIGHT - 120, header_font, (254, 243, 199))
+    draw_centered_text(
+        draw,
+        "الحمد للہ",
+        WIDTH // 2,
+        HEIGHT - 128,
+        header_font,
+        (254, 243, 199),
+        shadow=(17, 94, 89),
+    )
 
-    # Unique Islamic background set
-    draw_islamic_set_background(draw, t_sec=t_sec, darken=darken)
+    # Namaz clock set on left
+    draw_namaz_clock_set(draw, t_sec=t_sec, q_num=q_num, small_font=clock_small_font, darken=darken)
 
-    # Question/Answer card framed cleanly clear of bottom Shorts bar and right buttons
+    # Question/Answer card
     card_left = 262
-    card_right = WIDTH - 110
-    card_top = 250
+    card_right = WIDTH - 108
+    card_top = 246
     card_bottom = HEIGHT - 340
     card_fill = (242, 236, 216) if darken else (255, 251, 235)
     draw.rounded_rectangle(
@@ -484,7 +604,7 @@ def make_slide(
     badge_w = 340
     badge_h = 104
     bx1 = card_cx - (badge_w // 2)
-    by1 = card_top + 36
+    by1 = card_top + 34
     draw.rounded_rectangle(
         [bx1, by1, bx1 + badge_w, by1 + badge_h],
         radius=24,
@@ -492,7 +612,15 @@ def make_slide(
         outline=(255, 255, 255),
         width=3,
     )
-    draw_centered_text(draw, badge_label, card_cx, by1 + 18, badge_font, (255, 255, 255))
+    draw_centered_text(
+        draw,
+        badge_label,
+        card_cx,
+        by1 + 10,
+        badge_font,
+        (255, 255, 255),
+        shadow=(30, 41, 59),
+    )
 
     max_text_w = (card_right - card_left) - 64
     ur_lines = wrap_text(draw, main_text, body_font, max_text_w)
@@ -501,28 +629,28 @@ def make_slide(
     measured = []
     for line in ur_lines:
         bb = draw.textbbox((0, 0), line, font=body_font)
-        lh = (bb[3] - bb[1]) + 28
-        measured.append((line, body_font, (17, 24, 39), lh))
+        lh = (bb[3] - bb[1]) + 34
+        measured.append((line, body_font, (17, 24, 39), (225, 215, 190), lh))
 
     if en_lines:
-        measured.append(("", sub_font, (75, 85, 99), 20))
+        measured.append(("", sub_font, (75, 85, 99), None, 22))
         for line in en_lines:
             bb = draw.textbbox((0, 0), line, font=sub_font)
-            lh = (bb[3] - bb[1]) + 14
-            measured.append((line, sub_font, (75, 85, 99), lh))
+            lh = (bb[3] - bb[1]) + 15
+            measured.append((line, sub_font, (75, 85, 99), None, lh))
 
-    total_h = sum(lh for _, _, _, lh in measured)
-    text_area_top = by1 + badge_h + 40
+    total_h = sum(lh for _, _, _, _, lh in measured)
+    text_area_top = by1 + badge_h + 38
     text_area_bottom = card_bottom - 36
     cur_y = text_area_top + max(0, ((text_area_bottom - text_area_top) - total_h) // 2)
 
-    for line, fnt, clr, lh in measured:
+    for line, fnt, clr, shd, lh in measured:
         if line:
-            draw_centered_text(draw, line, card_cx, cur_y, fnt, clr)
+            draw_centered_text(draw, line, card_cx, cur_y, fnt, clr, shadow=shd)
         cur_y += lh
 
-    # Molvi in Kurta Shalwar & Topi standing calmly above Shorts bottom UI
-    draw_molvi_kurta_shalwar_topi(draw, base_x=135, base_y=HEIGHT - 335, t_sec=t_sec)
+    # More realistic shaded Molvi in Kurta Shalwar & Topi
+    draw_realistic_molvi(draw, base_x=133, base_y=HEIGHT - 335, t_sec=t_sec)
 
     if curtain_progress < 1.0:
         draw_curtains_overlay(draw, curtain_progress)
@@ -601,6 +729,7 @@ def render_multi_qa_video(
     badge_font,
     body_font,
     sub_font,
+    clock_small_font,
 ) -> Path:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     batch_work = WORK_DIR / f"run_{run_num:03d}"
@@ -649,6 +778,8 @@ def render_multi_qa_video(
                 badge_font,
                 body_font,
                 sub_font,
+                clock_small_font,
+                q_num=q_num,
                 t_sec=abs_t,
                 curtain_progress=c_prog,
                 darken=False,
@@ -666,6 +797,8 @@ def render_multi_qa_video(
                 badge_font,
                 body_font,
                 sub_font,
+                clock_small_font,
+                q_num=q_num,
                 t_sec=abs_t,
                 curtain_progress=1.0,
                 darken=True,
@@ -683,6 +816,8 @@ def render_multi_qa_video(
                 badge_font,
                 body_font,
                 sub_font,
+                clock_small_font,
+                q_num=q_num,
                 t_sec=abs_t,
                 curtain_progress=1.0,
                 darken=False,
@@ -750,8 +885,9 @@ def main():
 
     header_font = get_urdu_font(42)
     badge_font = get_urdu_font(44)
-    body_font = get_urdu_font(50)
-    sub_font = get_latin_font(30)
+    body_font = get_urdu_font(52)
+    sub_font = get_latin_font(30, bold=True)
+    clock_small_font = get_latin_font(20, bold=True)
 
     created = render_multi_qa_video(
         batch_items,
@@ -760,6 +896,7 @@ def main():
         badge_font,
         body_font,
         sub_font,
+        clock_small_font,
     )
 
     state["run_count"] = run_num
