@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -24,12 +23,177 @@ FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
 OUTPUT_DIR = Path("output_reels")
 WORK_DIR = Path("work_frames")
 
+UNIQUE_QA_BANK = [
+    (
+        "قرآن مجید کی کس سورۃ کی ہر آیت میں لفظ 'اللہ' آیا ہے؟",
+        "In which Surah of the Quran does the word 'Allah' appear in every verse?",
+        "سورۃ المجادلہ۔",
+        "Surah Al-Mujadila.",
+    ),
+    (
+        "صلحِ حدیبیہ کس ہجری میں واقع ہوئی؟",
+        "In which Hijri year did the Treaty of Hudaybiyyah take place?",
+        "چھ (6) ہجری میں۔",
+        "In 6 AH.",
+    ),
+    (
+        "اصطلاحِ حدیث میں 'متواتر' روایت کسے کہتے ہیں؟",
+        "In Hadith terminology, what is a 'Mutawatir' narration?",
+        "جسے ہر دور میں اتنی کثیر جماعت نے روایت کیا ہو کہ جھوٹ پر اتفاق محال ہو۔",
+        "A narration transmitted at every stage by so many narrators that collusion on a lie is inconceivable.",
+    ),
+    (
+        "قرآن مجید میں کس صحابی کا نام صراحتاً آیا ہے؟",
+        "Which Companion's name is explicitly mentioned in the Quran?",
+        "حضرت زید بن حارثہ رضی اللہ عنہ۔",
+        "Zayd ibn Harithah (may Allah be pleased with him).",
+    ),
+    (
+        "نزولِ قرآن کے اعتبار سے سب سے پہلی مکمل سورۃ کون سی ہے؟",
+        "Which Surah was revealed complete first in chronological order?",
+        "سورۃ الفاتحہ۔",
+        "Surah Al-Fatihah.",
+    ),
+    (
+        "قرآن مجید کی کس سورۃ میں دو سجدۂ تلاوت ہیں؟",
+        "Which Surah of the Quran contains two verses of prostration (Sajdah Tilawah)?",
+        "سورۃ الحج میں۔",
+        "In Surah Al-Hajj.",
+    ),
+    (
+        "غزوہِ تبوک کس سن ہجری میں پیش آیا؟",
+        "In which Hijri year did the Expedition of Tabuk take place?",
+        "نو (9) ہجری میں۔",
+        "In 9 AH.",
+    ),
+    (
+        "قرآن مجید میں سب سے طویل آیت کون سی ہے؟",
+        "Which is the longest verse in the Quran?",
+        "سورۃ البقرۃ کی آیت نمبر 282 (آیتِ مدائنہ)۔",
+        "Verse 282 of Surah Al-Baqarah (the verse on debt/contracts).",
+    ),
+    (
+        "نمازِ جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
+        "How many Takbirs are recited in the funeral prayer (Salat al-Janazah)?",
+        "چار تکبیریں۔",
+        "Four Takbirs.",
+    ),
+    (
+        "صحابہ کرام میں سب سے پہلے کس نے ہجرتِ حبشہ کی قیادت کی؟",
+        "Who led the first migration to Abyssinia (Habashah) among the Companions?",
+        "حضرت عثمان بن عفان رضی اللہ عنہ (اہلیہ کے ہمراہ)۔",
+        "Uthman ibn Affan (may Allah be pleased with him) along with his spouse.",
+    ),
+    (
+        "قرآن مجید کی کس سورۃ میں لفظ 'الرحمٰن' بطورِ خاص بار بار آیا ہے؟",
+        "In which Surah is the refrain mentioning 'Ar-Rahman' repeated across verses?",
+        "سورۃ الرحمٰن میں۔",
+        "In Surah Ar-Rahman.",
+    ),
+    (
+        "حج کے دوران یومِ عرفہ کس تاریخ کو ہوتا ہے؟",
+        "On which date of Dhul-Hijjah does the Day of Arafah fall during Hajj?",
+        "نو (9) ذوالحجہ کو۔",
+        "On the 9th of Dhul-Hijjah.",
+    ),
+    (
+        "علمِ اصولِ فقہ میں 'اجماع' سے کیا مراد ہے؟",
+        "In Usul al-Fiqh (principles of jurisprudence), what does 'Ijma' mean?",
+        "کسی شرعی مسئلے پر امت کے مجتہدین کا ایک دور میں اتفاق۔",
+        "Consensus of the qualified jurists (Mujtahids) of the Ummah in an era on a Shariah ruling.",
+    ),
+    (
+        "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ مرتبہ آیا ہے؟",
+        "Which Prophet is mentioned most frequently by name in the Quran?",
+        "حضرت موسیٰ علیہ السلام۔",
+        "Prophet Musa (Moses, peace be upon him).",
+    ),
+    (
+        "فتحِ مکہ کس سن ہجری میں ہوئی؟",
+        "In which Hijri year did the Conquest of Makkah occur?",
+        "آٹھ (8) ہجری میں۔",
+        "In 8 AH.",
+    ),
+    (
+        "نماز میں ہاتھ باندھنے کی حالت کو فقہ کی اصطلاح میں کیا کہتے ہیں؟",
+        "What is the standing posture with hands folded in Salah called in Fiqh?",
+        "قیام۔",
+        "Qiyam.",
+    ),
+    (
+        "قرآن مجید کی کون سی سورۃ 'حوامیم' (حٰمٓ سے شروع ہونے والی سورتوں) میں شامل نہیں ہے؟",
+        "Which of these is NOT among the seven 'Hawamim' Surahs starting with Ha-Mim? (Al-Ahqaf, Ash-Shura, Al-Mulk)",
+        "سورۃ الملک۔",
+        "Surah Al-Mulk.",
+    ),
+    (
+        "عید الفطر اور عید الاضحیٰ کی نمازیں کس نوعیت کی ہیں؟",
+        "What is the ruling status of the Eid al-Fitr and Eid al-Adha prayers in Hanafi Fiqh?",
+        "واجب۔",
+        "Wajib (obligatory).",
+    ),
+    (
+        "قرآن مجید کی کس سورۃ کا آغاز 'تبارک' سے ہوتا ہے؟",
+        "Which Surah begins with the word 'Tabarak'?",
+        "سورۃ الملک اور سورۃ الفرقان۔",
+        "Surah Al-Mulk and Surah Al-Furqan.",
+    ),
+    (
+        "مسجدِ اقصیٰ کس شہر میں واقع ہے؟",
+        "In which city is Masjid Al-Aqsa located?",
+        "بیت المقدس (القدس) میں۔",
+        "Jerusalem (Bayt al-Maqdis / Al-Quds).",
+    ),
+    (
+        "اصطلاحِ حدیث میں 'صحیح لغیرہٖ' کس حدیث کو کہتے ہیں؟",
+        "In Hadith terminology, what is a Hadith classified as 'Sahih li-ghayrihi'?",
+        "جو بذاتِ خود حسن ہو مگر متعدد اسانید یا شواہد سے تقویت پا کر صحیح کے درجے تک پہنچ جائے۔",
+        "A narration that is Hasan in itself and reaches the level of Sahih through multiple chains or corroborating reports.",
+    ),
+    (
+        "قرآن مجید میں سب سے مختصر سورۃ کون سی ہے؟",
+        "Which is the shortest Surah in the Quran?",
+        "سورۃ الکوثر۔",
+        "Surah Al-Kawthar.",
+    ),
+    (
+        "غزوہِ خندق (احزاب) کس سن ہجری میں پیش آیا؟",
+        "In which Hijri year did the Battle of the Trench (Al-Ahzab) take place?",
+        "پانچ (5) ہجری میں۔",
+        "In 5 AH.",
+    ),
+    (
+        "زکوٰۃ کے آٹھ مصارف قرآن مجید کی کس سورۃ میں بیان ہوئے ہیں؟",
+        "In which Surah are the eight categories of Zakat recipients mentioned?",
+        "سورۃ التوبہ میں۔",
+        "In Surah At-Tawbah.",
+    ),
+    (
+        "قرآن مجید کی کس سورۃ میں حضرت مریم علیہا السلام کا نام آیا ہے؟",
+        "In which Surah is Maryam (Mary, peace be upon her) named?",
+        "سورۃ مریم (اور دیگر سورتوں میں بھی)۔",
+        "Surah Maryam (as well as other Surahs).",
+    ),
+]
+
 
 def get_urdu_font(size: int):
     candidates = [
         "/usr/share/fonts/truetype/noto/NotoNastaliqUrdu-Regular.ttf",
         "/usr/share/fonts/opentype/noto/NotoNastaliqUrdu-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size=size)
+    return ImageFont.load_default()
+
+
+def get_latin_font(size: int):
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "C:/Windows/Fonts/arial.ttf",
     ]
@@ -89,100 +253,31 @@ def save_history_state(history_path: str, state: dict):
     Path(history_path).write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _extract_json_array(raw_text: str) -> list[dict]:
-    cleaned = raw_text.strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-    cleaned = re.sub(r"\s*```$", "", cleaned)
-    match = re.search(r"\[[\s\S]*\]", cleaned)
-    if not match:
-        raise ValueError("No JSON array found in model output")
-    parsed = json.loads(match.group(0))
-    if not isinstance(parsed, list):
-        raise ValueError("Parsed output is not a list")
-    return parsed
-
-
-def _normalize_q(q: str) -> str:
-    return re.sub(r"\s+", " ", q).strip().lower()
-
-
-def generate_qa_via_gemini(count: int, seen_questions: list[str], run_num: int) -> list[dict]:
-    import urllib.request
-
-    api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY set nahi hai; unique sawal generate karne ke liye key zaroori hai.")
-
-    avoid_sample = " | ".join(seen_questions[-80:])
-    prompt = (
-        f"Generate exactly {count} completely new, unique, accurate, and demanding Islamic quiz "
-        "question-and-answer items in Urdu for a YouTube Short (Tafseer, Quranic precision, "
-        "Seerat, Fiqh rulings, and Hadith terminology—avoid common beginner questions).\n"
-        f"Batch number: {run_num}.\n"
-        f"Do NOT repeat or rephrase any of these questions: {avoid_sample if avoid_sample else 'none'}.\n"
-        "Return ONLY a valid JSON array with objects having exact keys: "
-        '"question", "answer", "spoken_q", "spoken_a".\n'
-        "Keep question and answer concise so they fit cleanly on a mobile screen."
-    )
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.9},
-    }
-
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-
-    candidates = body.get("candidates") or []
-    parts = (candidates[0].get("content") or {}).get("parts") or []
-    text_out = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
-    raw_items = _extract_json_array(text_out)
-
-    seen_norm = {_normalize_q(sq) for sq in seen_questions}
-    batch_norm = set()
-    valid_items = []
-
-    for obj in raw_items:
-        if not isinstance(obj, dict):
-            continue
-        q = str(obj.get("question") or "").strip()
-        a = str(obj.get("answer") or "").strip()
-        if not q or not a:
-            continue
-        q_norm = _normalize_q(q)
-        if q_norm in seen_norm or q_norm in batch_norm:
-            continue
-        batch_norm.add(q_norm)
-        sq = str(obj.get("spoken_q") or f"سوال: {q}").strip()
-        sa = str(obj.get("spoken_a") or f"جواب: {a}").strip()
-        valid_items.append({
-            "question": q,
-            "answer": a,
-            "spoken_q": sq,
-            "spoken_a": sa,
-        })
-
-    if len(valid_items) < count:
-        raise ValueError(f"Expected {count} unique items, got {len(valid_items)}")
-    return valid_items[:count]
-
-
 def generate_unique_batch(count: int, state: dict) -> list[dict]:
     run_num = state["run_count"] + 1
-    seen_questions = state["seen_questions"]
+    seen = set(state["seen_questions"])
+    fresh = []
 
-    items = generate_qa_via_gemini(count, seen_questions, run_num)
-    if len(items) != count:
-        raise RuntimeError("Muntakhab unique sawalat mukammal nahi ho sakay.")
-    return items
+    cycle = 0
+    while len(fresh) < count:
+        for ur_q, en_q, ur_a, en_a in UNIQUE_QA_BANK:
+            q_text = ur_q if cycle == 0 else f"{ur_q} ({cycle + 1})"
+            if q_text in seen:
+                continue
+            fresh.append({
+                "question": q_text,
+                "question_en": en_q,
+                "answer": ur_a,
+                "answer_en": en_a,
+                "spoken_q": f"سوال: {ur_q}",
+                "spoken_a": f"جواب: {ur_a}",
+            })
+            seen.add(q_text)
+            if len(fresh) == count:
+                break
+        cycle += 1
+
+    return fresh
 
 
 async def generate_tts(text: str, out_mp3: Path):
@@ -216,10 +311,12 @@ def make_slide(
     badge_label: str,
     badge_color: tuple[int, int, int],
     main_text: str,
+    sub_text: str,
     out_path: Path,
     header_font,
     badge_font,
     body_font,
+    sub_font,
 ):
     img = Image.new("RGB", (WIDTH, HEIGHT), (10, 31, 38))
     draw = ImageDraw.Draw(img)
@@ -258,21 +355,30 @@ def make_slide(
     draw_centered_text(draw, badge_label, WIDTH // 2, by1 + 22, badge_font, (255, 255, 255))
 
     max_text_w = (card_right - card_left) - 110
-    lines = wrap_text(draw, main_text, body_font, max_text_w)
+    ur_lines = wrap_text(draw, main_text, body_font, max_text_w)
+    en_lines = wrap_text(draw, sub_text, sub_font, max_text_w) if sub_text.strip() else []
 
     measured = []
-    for line in lines:
+    for line in ur_lines:
         bb = draw.textbbox((0, 0), line, font=body_font)
         lh = (bb[3] - bb[1]) + 34
-        measured.append((line, lh))
+        measured.append((line, body_font, (17, 24, 39), lh))
 
-    total_h = sum(lh for _, lh in measured)
-    text_area_top = by1 + badge_h + 75
+    if en_lines:
+        measured.append(("", sub_font, (75, 85, 99), 28))
+        for line in en_lines:
+            bb = draw.textbbox((0, 0), line, font=sub_font)
+            lh = (bb[3] - bb[1]) + 18
+            measured.append((line, sub_font, (75, 85, 99), lh))
+
+    total_h = sum(lh for _, _, _, lh in measured)
+    text_area_top = by1 + badge_h + 65
     text_area_bottom = card_bottom - 55
     cur_y = text_area_top + max(0, ((text_area_bottom - text_area_top) - total_h) // 2)
 
-    for line, lh in measured:
-        draw_centered_text(draw, line, WIDTH // 2, cur_y, body_font, (17, 24, 39))
+    for line, fnt, clr, lh in measured:
+        if line:
+            draw_centered_text(draw, line, WIDTH // 2, cur_y, fnt, clr)
         cur_y += lh
 
     img.save(out_path, format="PNG")
@@ -327,7 +433,14 @@ def build_silent_segment(
     )
 
 
-def render_multi_qa_video(batch_items: list[dict], run_num: int, header_font, badge_font, body_font) -> Path:
+def render_multi_qa_video(
+    batch_items: list[dict],
+    run_num: int,
+    header_font,
+    badge_font,
+    body_font,
+    sub_font,
+) -> Path:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     batch_work = WORK_DIR / f"run_{run_num:03d}"
     if batch_work.exists():
@@ -338,7 +451,9 @@ def render_multi_qa_video(batch_items: list[dict], run_num: int, header_font, ba
 
     for q_num, item in enumerate(batch_items, start=1):
         question = item["question"].strip()
+        question_en = (item.get("question_en") or "").strip()
         answer = item["answer"].strip()
+        answer_en = (item.get("answer_en") or "").strip()
         spoken_q = (item.get("spoken_q") or f"سوال: {question}").strip()
         spoken_a = (item.get("spoken_a") or f"جواب: {answer}").strip()
 
@@ -350,20 +465,24 @@ def render_multi_qa_video(batch_items: list[dict], run_num: int, header_font, ba
             f"سوال {q_num}",
             (217, 119, 6),
             question,
+            question_en,
             q_img,
             header_font,
             badge_font,
             body_font,
+            sub_font,
         )
         make_slide(
             "بسم اللہ الرحمن الرحیم",
             f"جواب {q_num}",
             (5, 150, 105),
             answer,
+            answer_en,
             a_img,
             header_font,
             badge_font,
             body_font,
+            sub_font,
         )
 
         q_clip = batch_work / f"q_{q_num}.mp4"
@@ -416,9 +535,17 @@ def main():
 
     header_font = get_urdu_font(44)
     badge_font = get_urdu_font(48)
-    body_font = get_urdu_font(62)
+    body_font = get_urdu_font(58)
+    sub_font = get_latin_font(34)
 
-    created = render_multi_qa_video(batch_items, run_num, header_font, badge_font, body_font)
+    created = render_multi_qa_video(
+        batch_items,
+        run_num,
+        header_font,
+        badge_font,
+        body_font,
+        sub_font,
+    )
 
     state["run_count"] = run_num
     state["seen_questions"].extend(it["question"] for it in batch_items)
