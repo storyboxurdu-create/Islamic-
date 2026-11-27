@@ -37,46 +37,46 @@ HISTORY_FILE = "islamic_history.json"
 
 FALLBACK_QUIZ = [
     {
+        "question": "زندگی کی آخری ساعتوں میں\nانسان کو کیا یاد آتا ہے؟",
+        "options": [
+            ("A)", "money bag cash coins", "دولت"),
+            ("B)", "family parents children", "رشتے"),
+            ("C)", "mistake regret error", "غلطیاں"),
+        ],
+        "correct_index": 2,
+        "answer_label": "درست جواب: غلطیاں",
+        "question_speech": (
+            "زندگی کی آخری ساعتوں میں انسان کو کیا یاد آتا ہے؟ "
+            "دولت، رشتے، یا غلطیاں؟"
+        ),
+        "answer_speech": "درست جواب ہے: غلطیاں۔",
+    },
+    {
         "question": "اللہ اپنے بندے سے\nکب سب سے زیادہ خوش ہوتا ہے؟",
         "options": [
-            ("A)", "sleeping peacefully on bed at night", "جب وہ سوتا ہے"),
-            ("B)", "playing football on green field", "جب وہ کھیلتا ہے"),
-            ("C)", "reading quran in peaceful mosque", "جب وہ توبہ کرتا ہے"),
+            ("A)", "sleeping bed night", "جب وہ سوتا ہے"),
+            ("B)", "football soccer field", "جب وہ کھیلتا ہے"),
+            ("C)", "quran prayer mosque", "جب وہ توبہ کرتا ہے"),
         ],
         "correct_index": 2,
         "answer_label": "درست جواب: جب وہ توبہ کرتا ہے",
         "question_speech": (
             "اللہ اپنے بندے سے کب سب سے زیادہ خوش ہوتا ہے؟ "
-            "کیا جب وہ سوتا ہے، کھیلتا ہے، یا جب وہ توبہ کرتا ہے؟"
+            "جب وہ سوتا ہے، کھیلتا ہے، یا توبہ کرتا ہے؟"
         ),
         "answer_speech": "درست جواب ہے: جب وہ توبہ کرتا ہے۔",
-    },
-    {
-        "question": "اسلام کی سب سے پہلی\nمسجد کون سی ہے؟",
-        "options": [
-            ("A)", "white quba mosque architecture", "مسجدِ قبا"),
-            ("B)", "green dome prophet mosque medina", "مسجدِ نبوی"),
-            ("C)", "golden dome mosque jerusalem", "مسجدِ اقصیٰ"),
-        ],
-        "correct_index": 0,
-        "answer_label": "درست جواب: مسجدِ قبا",
-        "question_speech": (
-            "اسلام کی سب سے پہلی مسجد کون سی ہے؟ "
-            "مسجدِ قبا، مسجدِ نبوی، یا مسجدِ اقصیٰ؟"
-        ),
-        "answer_speech": "درست جواب ہے: مسجدِ قبا۔",
     },
 ]
 
 
 def discover_urdu_font() -> str | None:
-  preferred = [
+  candidates = [
       "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
       "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
       "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
       "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
   ]
-  for p in preferred:
+  for p in candidates:
     if os.path.exists(p):
       return p
   try:
@@ -89,10 +89,7 @@ def discover_urdu_font() -> str | None:
         if line.strip().lower().endswith((".ttf", ".otf"))
     ]
     for f in files:
-      if "arabic" in f.lower() and "bold" in f.lower():
-        return f
-    for f in files:
-      if "arabic" in f.lower():
+      if "bold" in f.lower():
         return f
     if files:
       return files[0]
@@ -121,21 +118,25 @@ def get_latin_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def urdu_text(text: str) -> str:
+  """
+    Clean Urdu shaping for PIL: reshapes Arabic/Urdu characters and applies bidi display
+    without reversing character/word order manually.
+    """
   if not text:
     return ""
-  lines = []
+  out = []
   for raw in text.split("\n"):
-    s = raw.strip()
-    if not s:
-      lines.append("")
+    line = raw.strip()
+    if not line:
+      out.append("")
       continue
     if HAS_RESHAPER and HAS_BIDI:
-      lines.append(get_display(arabic_reshaper.reshape(s)))
+      out.append(get_display(arabic_reshaper.reshape(line)))
     elif HAS_RESHAPER:
-      lines.append(arabic_reshaper.reshape(s))
+      out.append(arabic_reshaper.reshape(line))
     else:
-      lines.append(s)
-  return "\n".join(lines)
+      out.append(line)
+  return "\n".join(out)
 
 
 def load_history() -> list[str]:
@@ -171,8 +172,8 @@ def generate_gemini_quiz() -> list[dict]:
   prompt = f"""
 Generate 2 short, clear, engaging Islamic quiz questions in Urdu for a YouTube Short.
 Rules:
-- Use simple, natural Urdu (max 2 short lines per question, 2-4 Urdu words per option).
-- Each option (A, B, C) must include a clear 3-5 word English real-photo search description.
+- Use simple, natural Urdu (max 2 short lines per question, 1-4 Urdu words per option).
+- Each option (A, B, C) must include a clear 2-4 word English keyword for photo/sticker matching.
 - Include correct_index (0, 1, or 2), answer_label in Urdu, question_speech (complete Urdu question + options), and answer_speech (clear Urdu answer).
 - Avoid repeating these previous questions:
 {avoid_text}
@@ -182,9 +183,9 @@ Return ONLY valid JSON list of 2 items:
   {{
     "question": "آسان اردو سوال سطر 1\\nسطر 2",
     "options": [
-      ["A)", "real photo description 1", "آسان آپشن 1"],
-      ["B)", "real photo description 2", "آسان آپشن 2"],
-      ["C)", "real photo description 3", "آسان آپشن 3"]
+      ["A)", "keyword 1", "آسان آپشن 1"],
+      ["B)", "keyword 2", "آسان آپشن 2"],
+      ["C)", "keyword 3", "آسان آپشن 3"]
     ],
     "correct_index": 1,
     "answer_label": "درست جواب: آسان آپشن 2",
@@ -232,7 +233,7 @@ Return ONLY valid JSON list of 2 items:
   return FALLBACK_QUIZ
 
 
-def _download_valid_img(url: str, out_path: str, timeout: int = 20) -> bool:
+def _download_valid_img(url: str, out_path: str, timeout: int = 15) -> bool:
   headers = {
       "User-Agent": (
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -241,7 +242,7 @@ def _download_valid_img(url: str, out_path: str, timeout: int = 20) -> bool:
   }
   r = requests.get(url, headers=headers, timeout=timeout)
   r.raise_for_status()
-  if len(r.content) < 2000:
+  if len(r.content) < 1500:
     return False
   with open(out_path, "wb") as f:
     f.write(r.content)
@@ -250,7 +251,128 @@ def _download_valid_img(url: str, out_path: str, timeout: int = 20) -> bool:
   return True
 
 
-def fetch_option_photo(query: str, out_path: str) -> str:
+def build_realistic_sticker(
+    query: str, urdu_label: str, out_path: str, w: int = 260, h: int = 190
+) -> str:
+  """
+    Creates a clean glossy sticker-style visual matching the topic when real photos are unavailable.
+    """
+  low = f"{query} {urdu_label}".lower()
+  img = Image.new("RGBA", (w, h), (255, 255, 255, 0))
+  draw = ImageDraw.Draw(img)
+
+  # Sticker white border backing
+  pad = 12
+  draw.rounded_rectangle(
+      [pad, pad, w - pad, h - pad],
+      radius=28,
+      fill=(255, 255, 255, 255),
+      outline=(210, 218, 228, 255),
+      width=4,
+  )
+
+  cx, cy = w // 2, h // 2
+  if any(k in low for k in ["money", "cash", "coin", "دولت", "پیسہ", "مال"]):
+    # Glossy green money pouch sticker + gold coin
+    draw.rounded_rectangle(
+        [cx - 56, cy - 22, cx + 56, cy + 44],
+        radius=16,
+        fill=(34, 152, 78, 255),
+        outline=(20, 95, 48, 255),
+        width=3,
+    )
+    draw.polygon(
+        [(cx - 24, cy - 22), (cx + 24, cy - 22), (cx + 36, cy - 42), (cx - 36, cy - 42)],
+        fill=(46, 175, 92, 255),
+    )
+    draw.ellipse(
+        [cx - 20, cy - 8, cx + 20, cy + 32],
+        fill=(255, 212, 58, 255),
+        outline=(185, 135, 15, 255),
+        width=3,
+    )
+  elif any(k in low for k in ["family", "parent", "love", "رشتے", "ماں", "باپ", "بچے"]):
+    # Warm 3-person family sticker (parent left, parent right, child center)
+    for dx, r_head, body_h, col in [
+        (-42, 18, 42, (58, 128, 215, 255)),
+        (42, 18, 42, (224, 86, 122, 255)),
+        (0, 14, 30, (245, 166, 48, 255)),
+    ]:
+      hy = cy - 24 + (8 if r_head == 14 else 0)
+      draw.ellipse(
+          [cx + dx - r_head, hy - r_head, cx + dx + r_head, hy + r_head],
+          fill=col,
+      )
+      by1 = hy + r_head + 4
+      draw.rounded_rectangle(
+          [cx + dx - r_head - 4, by1, cx + dx + r_head + 4, by1 + body_h],
+          radius=14,
+          fill=col,
+      )
+  elif any(k in low for k in ["mistake", "regret", "error", "غلطیاں", "گناہ", "غلط"]):
+    # Bold glossy red X sticker badge
+    draw.ellipse(
+        [cx - 46, cy - 46, cx + 46, cy + 46],
+        fill=(224, 48, 60, 255),
+        outline=(140, 20, 30, 255),
+        width=4,
+    )
+    draw.line(
+        [(cx - 20, cy - 20), (cx + 20, cy + 20)],
+        fill=(255, 255, 255, 255),
+        width=9,
+    )
+    draw.line(
+        [(cx + 20, cy - 20), (cx - 20, cy + 20)],
+        fill=(255, 255, 255, 255),
+        width=9,
+    )
+  elif any(k in low for k in ["mosque", "masjid", "quran", "prayer", "توبہ", "مسجد", "نماز", "قرآن"]):
+    # Glossy emerald dome + gold crescent sticker
+    draw.pieslice(
+        [cx - 48, cy - 46, cx + 48, cy + 50],
+        180,
+        360,
+        fill=(22, 145, 98, 255),
+    )
+    draw.rounded_rectangle(
+        [cx - 48, cy + 2, cx + 48, cy + 44],
+        radius=10,
+        fill=(245, 242, 232, 255),
+        outline=(160, 155, 140, 255),
+        width=2,
+    )
+    draw.ellipse(
+        [cx - 10, cy - 62, cx + 10, cy - 42],
+        fill=(255, 208, 52, 255),
+    )
+  elif any(k in low for k in ["sleep", "bed", "night", "سوتا", "نیند"]):
+    # Crescent moon + pillow sticker
+    draw.ellipse([cx - 32, cy - 48, cx + 32, cy + 16], fill=(255, 210, 55, 255))
+    draw.ellipse([cx - 14, cy - 52, cx + 42, cy + 4], fill=(255, 255, 255, 255))
+    draw.rounded_rectangle(
+        [cx - 46, cy + 16, cx + 46, cy + 44],
+        radius=12,
+        fill=(88, 128, 215, 255),
+    )
+  else:
+    # Sports ball sticker
+    draw.ellipse(
+        [cx - 44, cy - 44, cx + 44, cy + 44],
+        fill=(248, 250, 252, 255),
+        outline=(35, 42, 55, 255),
+        width=4,
+    )
+    draw.ellipse([cx - 14, cy - 14, cx + 14, cy + 14], fill=(35, 42, 55, 255))
+
+  # Subtle white sticker drop shadow
+  bg = Image.new("RGBA", (w, h), (255, 255, 255, 255))
+  bg.alpha_composite(img)
+  bg.convert("RGB").save(out_path)
+  return out_path
+
+
+def fetch_option_photo(query: str, urdu_label: str, out_path: str) -> str:
   api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
   clean_q = " ".join((query or "").split()[:4])
 
@@ -260,48 +382,17 @@ def fetch_option_photo(query: str, out_path: str) -> str:
           f"[https://pixabay.com/api/?key=](https://pixabay.com/api/?key=){api_key}"
           f"&q={quote(clean_q)}&image_type=photo&safesearch=true&per_page=5"
       )
-      r = requests.get(url, timeout=15)
+      r = requests.get(url, timeout=12)
       r.raise_for_status()
       hits = r.json().get("hits", [])
       for hit in hits:
         img_url = hit.get("webformatURL") or hit.get("largeImageURL")
         if img_url and _download_valid_img(img_url, out_path):
-          print("Pixabay photo loaded:", clean_q)
           return out_path
     except Exception as e:
-      print("Pixabay photo skip:", clean_q, e)
+      print("Pixabay skip:", clean_q, e)
 
-  if clean_q:
-    for attempt in range(2):
-      try:
-        p_prompt = quote(
-            f"realistic photo of {clean_q}, natural lighting, sharp photography, no text"
-        )
-        seed = random.randint(1000, 999999)
-        p_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){p_prompt}?width=420&height=300&seed={seed}&nologo=true"
-        if _download_valid_img(p_url, out_path, timeout=22):
-          print("Pollinations photo loaded:", clean_q)
-          return out_path
-      except Exception as e:
-        print(f"Pollinations retry {attempt+1} skip:", clean_q, e)
-
-  # Clean soft photographic-style card without empty circle or text overlap
-  w, h = 360, 240
-  im = Image.new("RGB", (w, h), (38, 62, 54))
-  dr = ImageDraw.Draw(im)
-  for y in range(h):
-    t = y / h
-    dr.line(
-        [(0, y), (w, y)],
-        fill=(int(34 + 36 * t), int(64 + 42 * t), int(54 + 28 * t)),
-    )
-  glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-  gd = ImageDraw.Draw(glow)
-  gd.rounded_rectangle([35, 35, w - 35, h - 35], radius=24, fill=(140, 235, 190, 55))
-  glow = glow.filter(ImageFilter.GaussianBlur(24))
-  im = Image.alpha_composite(im.convert("RGBA"), glow).convert("RGB")
-  im.save(out_path)
-  return out_path
+  return build_realistic_sticker(query, urdu_label, out_path)
 
 
 def fit_photo(path: str, w: int, h: int) -> Image.Image:
@@ -373,7 +464,6 @@ def render_state_frame(
   badge_font = get_latin_font(48)
   timer_font = get_latin_font(62)
 
-  # Top smooth white question box
   draw_smooth_card(
       bg,
       [54, 175, 1026, 595],
@@ -394,7 +484,6 @@ def render_state_frame(
       spacing=22,
   )
 
-  # Progress bar during 5-second timer
   if timer_num is not None and not show_answer:
     bx1, by1, bx2, by2 = 85, 622, 865, 666
     draw_smooth_card(
@@ -415,7 +504,6 @@ def render_state_frame(
         fill=(235, 25, 115),
     )
 
-  # 3 Option cards (A, B, C)
   start_y = 690
   row_h = 200
   gap = 22
@@ -467,7 +555,6 @@ def render_state_frame(
         anchor="rm",
     )
 
-  # Countdown number badge placed cleanly above Shorts footer
   if timer_num is not None and not show_answer:
     draw_smooth_card(
         bg,
@@ -487,7 +574,6 @@ def render_state_frame(
         anchor="mm",
     )
 
-  # Answer banner placed cleanly above Shorts footer
   if show_answer and item.get("answer_label"):
     draw_smooth_card(
         bg,
@@ -522,7 +608,9 @@ async def _tts_save(text: str, out_mp3: str, rate: str = "+0%", pitch: str = "-2
       print("TTS retry:", voice, e)
 
 
-def _mp3_to_mono_samples(mp3_path: str, sr: int, work_dir: str, tag: str) -> list[float]:
+def _mp3_to_mono_samples(
+    mp3_path: str, sr: int, work_dir: str, tag: str
+) -> list[float]:
   if not (
       HAS_TTS and os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 400
   ):
@@ -556,13 +644,14 @@ def _mp3_to_mono_samples(mp3_path: str, sr: int, work_dir: str, tag: str) -> lis
     return []
 
 
-def build_dynamic_question_track(item: dict, out_wav: str, work_dir: str) -> tuple[str, float, float, float]:
+def build_dynamic_question_track(
+    item: dict, out_wav: str, work_dir: str
+) -> tuple[str, float, float, float]:
   """
-  Builds an uncut audio track for ONE question with NO artificial cut-off:
-  Phase 1 (intro_dur): Full question & options spoken completely
-  Phase 2 (5.0s)     : 5-second countdown with soft warm chime pulse
-  Phase 3 (ans_dur)  : 'teeeeeennnnnnn' tone + full spoken answer
-  Returns (out_wav, intro_dur, timer_dur=5.0, ans_dur)
+  No fixed cut-off:
+  1. Voice speaks full question & options completely.
+  2. 5-second countdown with crisp clock-second 'tick' every 1.0s.
+  3. 'teeeeeennnnnnn' tone right after 5s, followed by spoken answer.
   """
   sr = 44100
   base_name = os.path.basename(out_wav)
@@ -573,10 +662,9 @@ def build_dynamic_question_track(item: dict, out_wav: str, work_dir: str) -> tup
   q_samples: list[float] = []
   if HAS_TTS and q_speech.strip():
     q_mp3 = os.path.join(work_dir, f"{base_name}_q.mp3")
-    asyncio.run(_tts_save(q_speech, q_mp3, rate="+2%", pitch="-2Hz"))
+    asyncio.run(_tts_save(q_speech, q_mp3, rate="+0%", pitch="-2Hz"))
     q_samples = _mp3_to_mono_samples(q_mp3, sr, work_dir, f"{base_name}_q")
 
-  # Ensure at least 3.0s intro even if TTS is unavailable
   intro_dur = max(3.0, len(q_samples) / sr + 0.25)
 
   a_samples: list[float] = []
@@ -593,27 +681,28 @@ def build_dynamic_question_track(item: dict, out_wav: str, work_dir: str) -> tup
   total_n = int(total_dur * sr)
   samples = [0.0] * total_n
 
-  # 1. Full question speech (from 0.0s)
+  # 1. Full question speech
   for i, val in enumerate(q_samples):
     if i < total_n:
       samples[i] += val
 
-  # 2. 5-second timer with soft melodic chime pulse (not harsh tick-tick)
+  # 2. Clock second tick ('tick' every 1.0 second across 5s timer)
   timer_start = intro_dur
-  chime_freqs = [523.25, 587.33, 659.25, 587.33, 523.25]
   for sec_i in range(5):
     t_s = timer_start + sec_i * 1.0
     s_i = int(t_s * sr)
-    p_len = int(0.24 * sr)
-    freq = chime_freqs[sec_i % len(chime_freqs)]
-    for k in range(p_len):
+    tick_len = int(0.06 * sr)
+    for k in range(tick_len):
       pos = s_i + k
       if pos < total_n:
         t_rel = k / sr
-        env = math.exp(-k / (0.07 * sr))
-        samples[pos] += 0.18 * env * math.sin(2 * math.pi * freq * t_rel)
+        env = math.exp(-k / (0.016 * sr))
+        # Crisp clock second tick (high transient snap + warm body)
+        snap = 0.34 * env * math.sin(2 * math.pi * 1650 * t_rel)
+        body = 0.16 * env * math.sin(2 * math.pi * 680 * t_rel)
+        samples[pos] += snap + body
 
-  # 3. 'teeeeeennnnnnn' tone right after 5s timer, followed by full spoken answer
+  # 3. 'teeeeeennnnnnn' tone + spoken answer
   ans_start = intro_dur + timer_dur
   b_start_i = int(ans_start * sr)
   b_len = int(buzz_dur * sr)
@@ -642,7 +731,8 @@ def build_dynamic_question_track(item: dict, out_wav: str, work_dir: str) -> tup
     for s in samples:
       clamped = max(-0.98, min(0.98, s))
       iv = int(clamped * 32767)
-      packed.extend(struct.pack("<hh", iv, iv))
+      rec = struct.pack("<hh", iv, iv)
+      packed.extend(rec)
     out_wf.writeframes(packed)
 
   return out_wav, intro_dur, timer_dur, ans_dur
@@ -660,9 +750,9 @@ def main():
 
   for q_idx, item in enumerate(quiz_items[:2]):
     thumb_paths = []
-    for o_idx, (_, photo_query, _) in enumerate(item["options"][:3]):
+    for o_idx, (_, photo_query, urdu_label) in enumerate(item["options"][:3]):
       p_file = os.path.join(work_dir, f"q{q_idx+1}_opt{o_idx+1}.jpg")
-      thumb_paths.append(fetch_option_photo(photo_query, p_file))
+      thumb_paths.append(fetch_option_photo(photo_query, urdu_label, p_file))
 
     wav_p = os.path.join(work_dir, f"q{q_idx+1}_full.wav")
     _, intro_dur, timer_dur, ans_dur = build_dynamic_question_track(
@@ -763,7 +853,6 @@ def main():
       stderr=subprocess.DEVNULL,
   )
 
-  # Keep under YouTube Shorts 60s limit without cutting mid-speech
   final_dur = min(59.0, total_video_sec)
   subprocess.run(
       [
