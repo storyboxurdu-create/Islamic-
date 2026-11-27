@@ -19,9 +19,7 @@ PAUSE_SEC = 0.35
 USE_VOICE = True
 URDU_VOICE = "ur-PK-AsadNeural"
 VOICE_RATE = "+4%"
-
-INTRO_SPOKEN_TEXT = "آئیے، آج کے مشکل اسلامی سوالات کا سلسلہ شروع کرتے ہیں۔"
-INTRO_SUB_TEXT = "Islamic Quiz Challenge — Curtain Rises"
+CURTAIN_OPEN_SEC = 0.45  # Fast curtain reveal at start
 
 HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
@@ -383,189 +381,101 @@ def get_media_duration(media_path: Path) -> float:
         return 1.2
 
 
-def draw_teacher_with_stick(draw: ImageDraw.ImageDraw, base_x: int, base_y: int, stick_angle_deg: float):
-    """Draw a stylized teacher standing on the side holding a pointer stick toward the quiz board."""
-    # Shadow on floor
-    draw.ellipse([base_x - 75, base_y - 12, base_x + 75, base_y + 18], fill=(6, 20, 25))
+def draw_teacher_standing_speaking(
+    draw: ImageDraw.ImageDraw,
+    base_x: int,
+    base_y: int,
+    t_sec: float,
+    speaking: bool = True,
+):
+    """Draw teacher standing continuously on left side, moving stick & talking while speaking."""
+    bob_y = int(4 * math.sin(t_sec * (7.0 if speaking else 2.2)))
+    sway_x = int(3 * math.sin(t_sec * (4.5 if speaking else 1.8)))
+    bx = base_x + sway_x
+    by = base_y + bob_y
+
+    # Floor shadow
+    draw.ellipse([base_x - 75, base_y - 10, base_x + 75, base_y + 18], fill=(6, 20, 25))
 
     # Legs / trousers
-    draw.rounded_rectangle([base_x - 36, base_y - 145, base_x - 6, base_y], radius=10, fill=(30, 41, 59))
-    draw.rounded_rectangle([base_x + 6, base_y - 145, base_x + 36, base_y], radius=10, fill=(30, 41, 59))
+    draw.rounded_rectangle([bx - 34, by - 145, bx - 6, base_y], radius=10, fill=(30, 41, 59))
+    draw.rounded_rectangle([bx + 6, by - 145, bx + 34, base_y], radius=10, fill=(30, 41, 59))
 
     # Shoes
-    draw.rounded_rectangle([base_x - 46, base_y - 18, base_x - 2, base_y + 4], radius=8, fill=(15, 23, 42))
-    draw.rounded_rectangle([base_x + 4, base_y - 18, base_x + 48, base_y + 4], radius=8, fill=(15, 23, 42))
+    draw.rounded_rectangle([bx - 44, base_y - 18, bx - 2, base_y + 4], radius=8, fill=(15, 23, 42))
+    draw.rounded_rectangle([bx + 4, base_y - 18, bx + 46, base_y + 4], radius=8, fill=(15, 23, 42))
 
-    # Torso / kurta / coat
-    draw.rounded_rectangle([base_x - 52, base_y - 295, base_x + 52, base_y - 135], radius=22, fill=(248, 250, 252), outline=(217, 119, 6), width=4)
-    # Waistcoat / shawl accent
-    draw.rounded_rectangle([base_x - 48, base_y - 292, base_x + 48, base_y - 165], radius=18, fill=(15, 118, 110))
+    # Torso & waistcoat
+    draw.rounded_rectangle([bx - 50, by - 295, bx + 50, by - 135], radius=22, fill=(248, 250, 252), outline=(217, 119, 6), width=4)
+    draw.rounded_rectangle([bx - 46, by - 292, bx + 46, by - 165], radius=18, fill=(15, 118, 110))
 
-    # Head & cap/turban
-    head_cx = base_x
-    head_cy = base_y - 345
+    # Head & cap
+    head_cx = bx
+    head_cy = by - 345
     draw.ellipse([head_cx - 42, head_cy - 44, head_cx + 42, head_cy + 44], fill=(253, 186, 116), outline=(120, 53, 15), width=3)
-    # Beard / stubble detail
     draw.arc([head_cx - 34, head_cy - 8, head_cx + 34, head_cy + 38], start=10, end=170, fill=(55, 65, 81), width=8)
-    # Eyes
     draw.ellipse([head_cx - 18, head_cy - 10, head_cx - 8, head_cy], fill=(17, 24, 39))
     draw.ellipse([head_cx + 8, head_cy - 10, head_cx + 18, head_cy], fill=(17, 24, 39))
-    # Cap
     draw.rounded_rectangle([head_cx - 44, head_cy - 62, head_cx + 44, head_cy - 24], radius=14, fill=(217, 119, 6))
 
-    # Right arm & hand holding the stick
-    shoulder_x = base_x + 36
-    shoulder_y = base_y - 260
-    hand_x = base_x + 88
-    hand_y = base_y - 235
+    # Animated speaking mouth
+    if speaking:
+        mouth_open = int(5 + 5 * abs(math.sin(t_sec * 16.0)))
+        draw.ellipse(
+            [head_cx - 10, head_cy + 12 - (mouth_open // 2), head_cx + 10, head_cy + 12 + (mouth_open // 2)],
+            fill=(153, 27, 27),
+        )
+    else:
+        draw.line([(head_cx - 9, head_cy + 13), (head_cx + 9, head_cy + 13)], fill=(120, 53, 15), width=3)
+
+    # Right arm & hand holding pointer stick moving toward the question/answer card
+    shoulder_x = bx + 36
+    shoulder_y = by - 258
+    hand_x = bx + 86 + int(6 * math.sin(t_sec * (6.5 if speaking else 2.0)))
+    hand_y = by - 234 + int(5 * math.cos(t_sec * (6.5 if speaking else 2.0)))
     draw.line([(shoulder_x, shoulder_y), (hand_x, hand_y)], fill=(248, 250, 252), width=20)
     draw.ellipse([hand_x - 14, hand_y - 14, hand_x + 14, hand_y + 14], fill=(253, 186, 116), outline=(120, 53, 15), width=3)
 
-    # Pointer stick extending toward the board
+    stick_angle_deg = -26.0 + (9.0 * math.sin(t_sec * (5.5 if speaking else 1.8)))
     rad = math.radians(stick_angle_deg)
-    stick_len = 250
+    stick_len = 230
     end_x = int(hand_x + math.cos(rad) * stick_len)
     end_y = int(hand_y + math.sin(rad) * stick_len)
     draw.line([(hand_x, hand_y), (end_x, end_y)], fill=(146, 64, 14), width=10)
     draw.ellipse([end_x - 8, end_y - 8, end_x + 8, end_y + 8], fill=(245, 158, 11))
 
 
-def make_intro_frame(
-    progress: float,
-    out_path: Path,
-    header_font,
-    body_font,
-    sub_font,
-):
-    """progress in [0.0, 1.0]: curtains open from both sides while teacher points stick to the quiz card."""
-    p = max(0.0, min(1.0, progress))
-    img = Image.new("RGB", (WIDTH, HEIGHT), (10, 31, 38))
-    draw = ImageDraw.Draw(img)
+def draw_curtains_overlay(draw: ImageDraw.ImageDraw, open_progress: float):
+    """Fast curtain pull-back revealing the underlying card without any cut."""
+    p = max(0.0, min(1.0, open_progress))
+    # Ease-out so curtain opens rapidly and smoothly
+    eased = 1.0 - ((1.0 - p) ** 2.4)
+    max_w = (WIDTH // 2) + 25
+    cur_w = int(max_w * (1.0 - eased))
+    if cur_w <= 6:
+        return
 
-    # Top & bottom bars
-    draw.rectangle([0, 0, WIDTH, 210], fill=(16, 185, 129))
-    draw.rectangle([0, 210, WIDTH, 224], fill=(245, 158, 11))
-    draw_centered_text(draw, "بسم اللہ الرحمن الرحیم", WIDTH // 2, 55, header_font, (255, 255, 255))
-
-    draw.rectangle([0, HEIGHT - 150, WIDTH, HEIGHT], fill=(15, 118, 110))
-    draw.rectangle([0, HEIGHT - 162, WIDTH, HEIGHT - 150], fill=(245, 158, 11))
-    draw_centered_text(draw, "الحمد للہ", WIDTH // 2, HEIGHT - 115, header_font, (254, 243, 199))
-
-    # Quiz board / card on the right-center where teacher points
-    board_left = 290
-    board_right = WIDTH - 44
-    board_top = 340
-    board_bottom = HEIGHT - 320
-    draw.rounded_rectangle(
-        [board_left, board_top, board_right, board_bottom],
-        radius=36,
-        fill=(255, 251, 235),
-        outline=(217, 119, 6),
-        width=10,
-    )
-
-    board_cx = (board_left + board_right) // 2
-    ur_lines = wrap_text(draw, "مشکل اسلامی سوالات", body_font, (board_right - board_left) - 70)
-    en_lines = wrap_text(draw, INTRO_SUB_TEXT, sub_font, (board_right - board_left) - 70)
-
-    cur_y = board_top + 220
-    for line in ur_lines:
-        h = draw_centered_text(draw, line, board_cx, cur_y, body_font, (17, 24, 39))
-        cur_y += h + 30
-
-    cur_y += 25
-    for line in en_lines:
-        h = draw_centered_text(draw, line, board_cx, cur_y, sub_font, (75, 85, 99))
-        cur_y += h + 16
-
-    # Teacher on left holding stick pointing up-right toward the board
-    stick_angle = -28.0 + (8.0 * math.sin(p * math.pi))
-    draw_teacher_with_stick(draw, base_x=155, base_y=HEIGHT - 215, stick_angle_deg=stick_angle)
-
-    # Opening curtains on left and right edges (retract as progress goes 0 -> 1)
-    max_curtain_w = (WIDTH // 2) + 30
-    cur_curtain_w = int(max_curtain_w * (1.0 - (0.78 * p)))
     folds = 7
-    if cur_curtain_w > 12:
-        # Left curtain
-        fold_w = max(8, cur_curtain_w // folds)
-        for i in range(folds):
-            x1 = i * fold_w
-            x2 = min(cur_curtain_w, (i + 1) * fold_w)
-            clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
-            draw.rectangle([x1, 224, x2, HEIGHT - 162], fill=clr)
-        draw.rectangle([cur_curtain_w - 14, 224, cur_curtain_w, HEIGHT - 162], fill=(245, 158, 11))
+    fold_w = max(8, cur_w // folds)
+    top_y = 224
+    bot_y = HEIGHT - 162
 
-        # Right curtain
-        right_start = WIDTH - cur_curtain_w
-        for i in range(folds):
-            x1 = right_start + (i * fold_w)
-            x2 = min(WIDTH, right_start + ((i + 1) * fold_w))
-            clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
-            draw.rectangle([x1, 224, x2, HEIGHT - 162], fill=clr)
-        draw.rectangle([right_start, 224, right_start + 14, HEIGHT - 162], fill=(245, 158, 11))
+    # Left curtain
+    for i in range(folds):
+        x1 = i * fold_w
+        x2 = min(cur_w, (i + 1) * fold_w)
+        clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
+        draw.rectangle([x1, top_y, x2, bot_y], fill=clr)
+    draw.rectangle([max(0, cur_w - 14), top_y, cur_w, bot_y], fill=(245, 158, 11))
 
-    img.save(out_path, format="PNG")
-
-
-def build_curtain_teacher_intro(
-    batch_work: Path,
-    header_font,
-    body_font,
-    sub_font,
-) -> Path:
-    intro_mp4 = batch_work / "intro_curtain_teacher.mp4"
-    intro_tts = batch_work / "intro_voice.mp3"
-    intro_raw = batch_work / "intro_frames_raw.mp4"
-
-    if USE_VOICE:
-        asyncio.run(generate_tts(INTRO_SPOKEN_TEXT, intro_tts))
-        duration_sec = max(1.6, get_media_duration(intro_tts) + 0.1)
-    else:
-        duration_sec = 2.0
-
-    total_frames = max(15, int(round(duration_sec * FPS)))
-    frames_dir = batch_work / "intro_frames"
-    frames_dir.mkdir(parents=True, exist_ok=True)
-
-    for idx in range(total_frames):
-        progress = idx / max(1, total_frames - 1)
-        frame_path = frames_dir / f"f_{idx:04d}.png"
-        make_intro_frame(progress, frame_path, header_font, body_font, sub_font)
-
-    subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-framerate", str(FPS),
-            "-i", str(frames_dir / "f_%04d.png"),
-            "-r", str(FPS),
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            str(intro_raw),
-        ],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-
-    if USE_VOICE and intro_tts.exists():
-        subprocess.run(
-            [
-                "ffmpeg", "-y",
-                "-i", str(intro_raw),
-                "-i", str(intro_tts),
-                "-filter_complex",
-                f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.1[aout]",
-                "-map", "0:v",
-                "-map", "[aout]",
-                "-t", f"{duration_sec:.2f}",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
-                str(intro_mp4),
-            ],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-    else:
-        build_silent_segment(frames_dir / "f_0000.png", duration_sec, intro_mp4, darken=False)
-
-    return intro_mp4
+    # Right curtain
+    right_start = WIDTH - cur_w
+    for i in range(folds):
+        x1 = right_start + (i * fold_w)
+        x2 = min(WIDTH, right_start + ((i + 1) * fold_w))
+        clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
+        draw.rectangle([x1, top_y, x2, bot_y], fill=clr)
+    draw.rectangle([right_start, top_y, min(WIDTH, right_start + 14), bot_y], fill=(245, 158, 11))
 
 
 def make_slide(
@@ -579,10 +489,16 @@ def make_slide(
     badge_font,
     body_font,
     sub_font,
+    t_sec: float = 0.0,
+    speaking: bool = True,
+    curtain_progress: float = 1.0,
+    darken: bool = False,
 ):
-    img = Image.new("RGB", (WIDTH, HEIGHT), (10, 31, 38))
+    bg_color = (8, 25, 31) if darken else (10, 31, 38)
+    img = Image.new("RGB", (WIDTH, HEIGHT), bg_color)
     draw = ImageDraw.Draw(img)
 
+    # Top & bottom bars
     draw.rectangle([0, 0, WIDTH, 210], fill=(16, 185, 129))
     draw.rectangle([0, 210, WIDTH, 224], fill=(245, 158, 11))
     draw_centered_text(draw, top_heading, WIDTH // 2, 55, header_font, (255, 255, 255))
@@ -591,22 +507,25 @@ def make_slide(
     draw.rectangle([0, HEIGHT - 162, WIDTH, HEIGHT - 150], fill=(245, 158, 11))
     draw_centered_text(draw, "الحمد للہ", WIDTH // 2, HEIGHT - 115, header_font, (254, 243, 199))
 
-    card_left = 44
-    card_right = WIDTH - 44
+    # Question/Answer card positioned cleanly beside the standing teacher
+    card_left = 265
+    card_right = WIDTH - 36
     card_top = 275
     card_bottom = HEIGHT - 215
+    card_fill = (242, 236, 216) if darken else (255, 251, 235)
     draw.rounded_rectangle(
         [card_left, card_top, card_right, card_bottom],
         radius=36,
-        fill=(255, 251, 235),
+        fill=card_fill,
         outline=(217, 119, 6),
         width=10,
     )
 
-    badge_w = 420
-    badge_h = 120
-    bx1 = (WIDTH - badge_w) // 2
-    by1 = card_top + 45
+    card_cx = (card_left + card_right) // 2
+    badge_w = 380
+    badge_h = 114
+    bx1 = card_cx - (badge_w // 2)
+    by1 = card_top + 42
     draw.rounded_rectangle(
         [bx1, by1, bx1 + badge_w, by1 + badge_h],
         radius=28,
@@ -614,85 +533,107 @@ def make_slide(
         outline=(255, 255, 255),
         width=4,
     )
-    draw_centered_text(draw, badge_label, WIDTH // 2, by1 + 22, badge_font, (255, 255, 255))
+    draw_centered_text(draw, badge_label, card_cx, by1 + 20, badge_font, (255, 255, 255))
 
-    max_text_w = (card_right - card_left) - 110
+    max_text_w = (card_right - card_left) - 72
     ur_lines = wrap_text(draw, main_text, body_font, max_text_w)
     en_lines = wrap_text(draw, sub_text, sub_font, max_text_w) if sub_text.strip() else []
 
     measured = []
     for line in ur_lines:
         bb = draw.textbbox((0, 0), line, font=body_font)
-        lh = (bb[3] - bb[1]) + 34
+        lh = (bb[3] - bb[1]) + 32
         measured.append((line, body_font, (17, 24, 39), lh))
 
     if en_lines:
-        measured.append(("", sub_font, (75, 85, 99), 28))
+        measured.append(("", sub_font, (75, 85, 99), 24))
         for line in en_lines:
             bb = draw.textbbox((0, 0), line, font=sub_font)
-            lh = (bb[3] - bb[1]) + 18
+            lh = (bb[3] - bb[1]) + 16
             measured.append((line, sub_font, (75, 85, 99), lh))
 
     total_h = sum(lh for _, _, _, lh in measured)
-    text_area_top = by1 + badge_h + 65
-    text_area_bottom = card_bottom - 55
+    text_area_top = by1 + badge_h + 55
+    text_area_bottom = card_bottom - 45
     cur_y = text_area_top + max(0, ((text_area_bottom - text_area_top) - total_h) // 2)
 
     for line, fnt, clr, lh in measured:
         if line:
-            draw_centered_text(draw, line, WIDTH // 2, cur_y, fnt, clr)
+            draw_centered_text(draw, line, card_cx, cur_y, fnt, clr)
         cur_y += lh
+
+    # Teacher always standing and moving throughout the video
+    draw_teacher_standing_speaking(draw, base_x=135, base_y=HEIGHT - 205, t_sec=t_sec, speaking=speaking)
+
+    # Fast opening curtain revealing the card smoothly underneath
+    if curtain_progress < 1.0:
+        draw_curtains_overlay(draw, curtain_progress)
 
     img.save(out_path, format="PNG")
 
 
-def build_segment_with_audio(
-    img_path: Path,
-    audio_path: Path,
+def build_animated_segment(
+    segment_dir: Path,
     duration_sec: float,
     out_mp4: Path,
+    frame_builder,
+    audio_path: Path | None = None,
+    global_t_start: float = 0.0,
 ):
+    segment_dir.mkdir(parents=True, exist_ok=True)
+    total_frames = max(6, int(round(duration_sec * FPS)))
+    for idx in range(total_frames):
+        local_t = idx / FPS
+        abs_t = global_t_start + local_t
+        progress = idx / max(1, total_frames - 1)
+        frame_file = segment_dir / f"f_{idx:04d}.png"
+        frame_builder(frame_file, local_t, abs_t, progress)
+
+    raw_video = segment_dir / "raw_video.mp4"
     subprocess.run(
         [
             "ffmpeg", "-y",
-            "-loop", "1", "-i", str(img_path),
-            "-i", str(audio_path),
-            "-filter_complex",
-            f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.1[aout]",
-            "-map", "0:v",
-            "-map", "[aout]",
-            "-t", f"{duration_sec:.2f}",
+            "-framerate", str(FPS),
+            "-i", str(segment_dir / "f_%04d.png"),
             "-r", str(FPS),
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
-            str(out_mp4),
+            str(raw_video),
         ],
         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
-
-def build_silent_segment(
-    img_path: Path,
-    duration_sec: float,
-    out_mp4: Path,
-    darken: bool = False,
-):
-    vf = "eq=brightness=-0.05" if darken else "null"
-    subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-loop", "1", "-i", str(img_path),
-            "-f", "lavfi", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo",
-            "-t", f"{duration_sec:.2f}",
-            "-r", str(FPS),
-            "-vf", vf,
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
-            "-shortest",
-            str(out_mp4),
-        ],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    if audio_path and audio_path.exists():
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", str(raw_video),
+                "-i", str(audio_path),
+                "-filter_complex",
+                f"[1:a]aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo,apad=pad_dur=0.1[aout]",
+                "-map", "0:v",
+                "-map", "[aout]",
+                "-t", f"{duration_sec:.2f}",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
+                str(out_mp4),
+            ],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    else:
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", str(raw_video),
+                "-f", "lavfi", "-i", f"anullsrc=r={AUDIO_RATE}:cl=stereo",
+                "-t", f"{duration_sec:.2f}",
+                "-r", str(FPS),
+                "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-ar", str(AUDIO_RATE), "-ac", "2", "-b:a", "128k",
+                "-shortest",
+                str(out_mp4),
+            ],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
 
 
 def render_multi_qa_video(
@@ -709,8 +650,8 @@ def render_multi_qa_video(
         shutil.rmtree(batch_work)
     batch_work.mkdir(parents=True, exist_ok=True)
 
-    intro_clip = build_curtain_teacher_intro(batch_work, header_font, body_font, sub_font)
-    all_clips = [intro_clip]
+    all_clips = []
+    global_t = 0.0
 
     for q_num, item in enumerate(batch_items, start=1):
         question = item["question"].strip()
@@ -719,34 +660,6 @@ def render_multi_qa_video(
         answer_en = (item.get("answer_en") or "").strip()
         spoken_q = to_spoken_urdu(item.get("spoken_q") or f"سوال: {question}")
         spoken_a = to_spoken_urdu(item.get("spoken_a") or f"جواب: {answer}")
-
-        q_img = batch_work / f"q_{q_num}.png"
-        a_img = batch_work / f"a_{q_num}.png"
-
-        make_slide(
-            "بسم اللہ الرحمن الرحیم",
-            f"سوال {q_num}",
-            (217, 119, 6),
-            question,
-            question_en,
-            q_img,
-            header_font,
-            badge_font,
-            body_font,
-            sub_font,
-        )
-        make_slide(
-            "بسم اللہ الرحمن الرحیم",
-            f"جواب {q_num}",
-            (5, 150, 105),
-            answer,
-            answer_en,
-            a_img,
-            header_font,
-            badge_font,
-            body_font,
-            sub_font,
-        )
 
         q_clip = batch_work / f"q_{q_num}.mp4"
         p_clip = batch_work / f"p_{q_num}.mp4"
@@ -759,13 +672,101 @@ def render_multi_qa_video(
             asyncio.run(generate_tts(spoken_a, a_tts))
             q_dur = get_media_duration(q_tts) + 0.1
             a_dur = get_media_duration(a_tts) + 0.15
-            build_segment_with_audio(q_img, q_tts, q_dur, q_clip)
-            build_segment_with_audio(a_img, a_tts, a_dur, a_clip)
         else:
-            build_silent_segment(q_img, 2.5, q_clip, darken=False)
-            build_silent_segment(a_img, 2.5, a_clip, darken=False)
+            q_tts = None
+            a_tts = None
+            q_dur = 2.5
+            a_dur = 2.5
 
-        build_silent_segment(q_img, PAUSE_SEC, p_clip, darken=True)
+        # On Q1, curtain opens rapidly right at the beginning revealing Question 1 seamlessly
+        def build_q_frame(out_p: Path, local_t: float, abs_t: float, _prog: float):
+            if q_num == 1:
+                c_prog = min(1.0, local_t / CURTAIN_OPEN_SEC)
+            else:
+                c_prog = 1.0
+            make_slide(
+                "بسم اللہ الرحمن الرحیم",
+                f"سوال {q_num}",
+                (217, 119, 6),
+                question,
+                question_en,
+                out_p,
+                header_font,
+                badge_font,
+                body_font,
+                sub_font,
+                t_sec=abs_t,
+                speaking=True,
+                curtain_progress=c_prog,
+                darken=False,
+            )
+
+        def build_p_frame(out_p: Path, _local_t: float, abs_t: float, _prog: float):
+            make_slide(
+                "بسم اللہ الرحمن الرحیم",
+                f"سوال {q_num}",
+                (217, 119, 6),
+                question,
+                question_en,
+                out_p,
+                header_font,
+                badge_font,
+                body_font,
+                sub_font,
+                t_sec=abs_t,
+                speaking=False,
+                curtain_progress=1.0,
+                darken=True,
+            )
+
+        def build_a_frame(out_p: Path, _local_t: float, abs_t: float, _prog: float):
+            make_slide(
+                "بسم اللہ الرحمن الرحیم",
+                f"جواب {q_num}",
+                (5, 150, 105),
+                answer,
+                answer_en,
+                out_p,
+                header_font,
+                badge_font,
+                body_font,
+                sub_font,
+                t_sec=abs_t,
+                speaking=True,
+                curtain_progress=1.0,
+                darken=False,
+            )
+
+        build_animated_segment(
+            batch_work / f"seg_q_{q_num}",
+            q_dur,
+            q_clip,
+            build_q_frame,
+            audio_path=q_tts,
+            global_t_start=global_t,
+        )
+        global_t += q_dur
+
+        build_animated_segment(
+            batch_work / f"seg_p_{q_num}",
+            PAUSE_SEC,
+            p_clip,
+            build_p_frame,
+            audio_path=None,
+            global_t_start=global_t,
+        )
+        global_t += PAUSE_SEC
+
+        build_animated_segment(
+            batch_work / f"seg_a_{q_num}",
+            a_dur,
+            a_clip,
+            build_a_frame,
+            audio_path=a_tts,
+            global_t_start=global_t,
+        )
+        global_t += a_dur
+
         all_clips.extend([q_clip, p_clip, a_clip])
 
     concat_list = batch_work / "concat.txt"
@@ -798,8 +799,8 @@ def main():
 
     header_font = get_urdu_font(44)
     badge_font = get_urdu_font(48)
-    body_font = get_urdu_font(58)
-    sub_font = get_latin_font(34)
+    body_font = get_urdu_font(54)
+    sub_font = get_latin_font(32)
 
     created = render_multi_qa_video(
         batch_items,
