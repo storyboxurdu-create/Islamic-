@@ -18,11 +18,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ffmpeg and Python dependencies
+      - name: Install ffmpeg, fonts, and Python dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-core
+          sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-core fonts-noto-extra
           pip install --upgrade pip
-          pip install pillow edge-tts google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          pip install pillow arabic-reshaper python-bidi edge-tts google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
       - name: Generate Islamic quiz reel
         env:
