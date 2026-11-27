@@ -1,5 +1,5 @@
 {
-  "run_count": 5,
+  "run_count": 6,
   "seen_questions": [
     "وضو کے فرائض کتنے ہیں؟",
     "غسل کے فرائض کتنے ہیں؟",
@@ -25,7 +25,12 @@
     "صلحِ حدیبیہ کس ہجری میں واقع ہوئی؟",
     "اصطلاحِ حدیث میں 'متواتر' روایت کسے کہتے ہیں؟",
     "قرآن مجید میں کس صحابی کا نام صراحتاً آیا ہے؟",
-    "نزولِ قرآن کے اعتبار سے سب سے پہلی مکمل سورۃ کون سی ہے؟"
+    "نزولِ قرآن کے اعتبار سے سب سے پہلی مکمل سورۃ کون سی ہے؟",
+    "قرآن مجید کی کس سورۃ میں دو سجدۂ تلاوت ہیں؟",
+    "غزوہِ تبوک کس سن ہجری میں پیش آیا؟",
+    "قرآن مجید میں سب سے طویل آیت کون سی ہے؟",
+    "نمازِ جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
+    "صحابہ کرام میں سب سے پہلے کس نے ہجرتِ حبشہ کی قیادت کی؟"
   ],
   "history": [
     {
@@ -210,6 +215,51 @@
           "answer_en": "Surah Al-Fatihah.",
           "spoken_q": "سوال: نزولِ قرآن کے اعتبار سے سب سے پہلی مکمل سورۃ کون سی ہے؟",
           "spoken_a": "جواب: سورۃ الفاتحہ۔"
+        }
+      ]
+    },
+    {
+      "run_no": 6,
+      "items": [
+        {
+          "question": "قرآن مجید کی کس سورۃ میں دو سجدۂ تلاوت ہیں؟",
+          "question_en": "Which Surah of the Quran contains two verses of prostration (Sajdah Tilawah)?",
+          "answer": "سورۃ الحج میں۔",
+          "answer_en": "In Surah Al-Hajj.",
+          "spoken_q": "سوال: قرآن مجید کی کس سورہ میں دو سجدہ تلاوت ہیں؟",
+          "spoken_a": "جواب: سورہ الحج میں۔"
+        },
+        {
+          "question": "غزوہِ تبوک کس سن ہجری میں پیش آیا؟",
+          "question_en": "In which Hijri year did the Expedition of Tabuk take place?",
+          "answer": "نو (9) ہجری میں۔",
+          "answer_en": "In 9 AH.",
+          "spoken_q": "سوال: غزوہ تبوک کس سن ہجری میں پیش آیا؟",
+          "spoken_a": "جواب: نو ہجری میں۔"
+        },
+        {
+          "question": "قرآن مجید میں سب سے طویل آیت کون سی ہے؟",
+          "question_en": "Which is the longest verse in the Quran?",
+          "answer": "سورۃ البقرۃ کی آیت نمبر 282 (آیتِ مدائنہ)۔",
+          "answer_en": "Verse 282 of Surah Al-Baqarah (the verse on debt/contracts).",
+          "spoken_q": "سوال: قرآن مجید میں سب سے لمبی آیت کون سی ہے؟",
+          "spoken_a": "جواب: سورہ البقرہ کی آیت نمبر دو سو بیاسی۔"
+        },
+        {
+          "question": "نمازِ جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
+          "question_en": "How many Takbirs are recited in the funeral prayer (Salat al-Janazah)?",
+          "answer": "چار تکبیریں۔",
+          "answer_en": "Four Takbirs.",
+          "spoken_q": "سوال: نماز جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
+          "spoken_a": "جواب: چار تکبیریں۔"
+        },
+        {
+          "question": "صحابہ کرام میں سب سے پہلے کس نے ہجرتِ حبشہ کی قیادت کی؟",
+          "question_en": "Who led the first migration to Abyssinia (Habashah) among the Companions?",
+          "answer": "حضرت عثمان بن عفان رضی اللہ عنہ (اہلیہ کے ہمراہ)۔",
+          "answer_en": "Uthman ibn Affan (may Allah be pleased with him) along with his spouse.",
+          "spoken_q": "سوال: صحابہ کرام میں سب سے پہلے کس نے ہجرت حبشہ کی قیادت کی؟",
+          "spoken_a": "جواب: حضرت عثمان بن عفان رضی اللہ عنہ نے اپنی اہلیہ کے ہمراہ۔"
         }
       ]
     }
