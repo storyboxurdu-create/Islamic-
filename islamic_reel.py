@@ -11,20 +11,6 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import requests
 
 try:
-  import arabic_reshaper
-
-  HAS_RESHAPER = True
-except ImportError:
-  HAS_RESHAPER = False
-
-try:
-  from bidi.algorithm import get_display
-
-  HAS_BIDI = True
-except ImportError:
-  HAS_BIDI = False
-
-try:
   import edge_tts
 
   HAS_TTS = True
@@ -69,8 +55,7 @@ FALLBACK_QUIZ = [
 ]
 
 
-def discover_urdu_font() -> str | None:
-  # Prefer Arabic/Urdu fonts first so ligatures and Urdu glyphs render properly
+def discover_urdu_font() -> str:
   preferred = [
       "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
       "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
@@ -84,31 +69,16 @@ def discover_urdu_font() -> str | None:
     out = subprocess.check_output(
         ["fc-list", ":lang=ur", "file"], text=True, stderr=subprocess.DEVNULL
     )
-    files = []
     for line in out.splitlines():
       p = line.split(":")[0].strip()
       if p and os.path.exists(p) and p.lower().endswith((".ttf", ".otf")):
-        files.append(p)
-    for f in files:
-      if "arabic" in f.lower() and "bold" in f.lower():
-        return f
-    for f in files:
-      if "arabic" in f.lower():
-        return f
-    if files:
-      return files[0]
+        return p
   except Exception:
     pass
-  return None
+  return "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
 URDU_FONT_FILE = discover_urdu_font()
-
-
-def get_urdu_font(size: int) -> ImageFont.FreeTypeFont:
-  if URDU_FONT_FILE and os.path.exists(URDU_FONT_FILE):
-    return ImageFont.truetype(URDU_FONT_FILE, size)
-  return ImageFont.load_default()
 
 
 def get_latin_font(size: int) -> ImageFont.FreeTypeFont:
@@ -121,25 +91,14 @@ def get_latin_font(size: int) -> ImageFont.FreeTypeFont:
   return ImageFont.load_default()
 
 
-def urdu_text(text: str) -> str:
-  """
-    Shapes Urdu text cleanly for PIL rendering.
-    """
-  if not text:
-    return ""
-  lines = []
-  for raw in text.split("\n"):
-    s = raw.strip()
-    if not s:
-      lines.append("")
-      continue
-    if HAS_RESHAPER and HAS_BIDI:
-      lines.append(get_display(arabic_reshaper.reshape(s)))
-    elif HAS_RESHAPER:
-      lines.append(arabic_reshaper.reshape(s))
-    else:
-      lines.append(s)
-  return "\n".join(lines)
+def escape_drawtext(s: str) -> str:
+  # Escape characters for FFmpeg drawtext filter
+  s = s.replace("\\", "\\\\")
+  s = s.replace(":", "\\:")
+  s = s.replace("'", "\\'")
+  s = s.replace("%", "\\%")
+  s = s.replace("[", "\\[") s = s.replace("]", "\\]")
+  return s
 
 
 def load_history() -> list[str]:
@@ -257,16 +216,12 @@ def _download_valid_img(url: str, out_path: str, timeout: int = 15) -> bool:
 def build_clean_sticker_thumb(
     query: str, urdu_label: str, out_path: str, w: int = 260, h: int = 190
 ) -> str:
-  """
-    Clean high-contrast sticker-style card matching the option topic when real photos are unavailable.
-    """
   low = f"{query} {urdu_label}".lower()
   img = Image.new("RGB", (w, h), (255, 255, 255))
   draw = ImageDraw.Draw(img)
 
   cx, cy = w // 2, h // 2
   if any(k in low for k in ["money", "cash", "coin", "دولت", "پیسہ", "مال"]):
-    # Money sack sticker
     draw.rounded_rectangle(
         [cx - 52, cy - 22, cx + 52, cy + 48],
         radius=20,
@@ -284,7 +239,6 @@ def build_clean_sticker_thumb(
     f = get_latin_font(44)
     draw.text((cx, cy + 14), "$", fill=(255, 235, 130), font=f, anchor="mm")
   elif any(k in low for k in ["family", "parent", "love", "رشتے", "ماں", "باپ", "ملاقات"]):
-    # Family figures sticker
     for dx, r_h, b_h, col in [
         (-44, 17, 42, (52, 122, 212)),
         (44, 17, 42, (224, 82, 118)),
@@ -299,7 +253,6 @@ def build_clean_sticker_thumb(
           fill=col,
       )
   elif any(k in low for k in ["mistake", "error", "غلطیاں", "گناہ", "غلط"]):
-    # Red cross sticker
     draw.ellipse(
         [cx - 46, cy - 46, cx + 46, cy + 46],
         fill=(220, 44, 56),
@@ -309,17 +262,14 @@ def build_clean_sticker_thumb(
     draw.line([(cx - 20, cy - 20), (cx + 20, cy + 20)], fill=(255, 255, 255), width=8)
     draw.line([(cx + 20, cy - 20), (cx - 20, cy + 20)], fill=(255, 255, 255), width=8)
   elif any(k in low for k in ["mosque", "masjid", "quran", "prayer", "توبہ", "مسجد", "نماز", "معافی"]):
-    # Dome + hands/book sticker
     draw.pieslice([cx - 52, cy - 42, cx + 52, cy + 52], 180, 360, fill=(22, 145, 96))
     draw.rectangle([cx - 52, cy + 4, cx + 52, cy + 44], fill=(242, 238, 224), outline=(140, 135, 120), width=2)
     draw.ellipse([cx - 9, cy - 58, cx + 9, cy - 40], fill=(245, 198, 42))
   elif any(k in low for k in ["sleep", "bed", "night", "سوتا", "نیند"]):
-    # Pillow + moon sticker
     draw.rounded_rectangle([cx - 54, cy - 10, cx + 54, cy + 40], radius=16, fill=(72, 124, 212))
     draw.ellipse([cx - 22, cy - 48, cx + 22, cy - 4], fill=(250, 204, 42))
     draw.ellipse([cx - 6, cy - 52, cx + 32, cy - 14], fill=(255, 255, 255))
   else:
-    # Football / ball sticker
     draw.ellipse(
         [cx - 44, cy - 44, cx + 44, cy + 44],
         fill=(248, 250, 252),
@@ -410,22 +360,22 @@ def draw_smooth_card(
   canvas_rgba.alpha_composite(layer)
 
 
-def render_state_frame(
+def render_base_card_png(
     item: dict,
     thumb_paths: list[str],
     out_png: str,
     timer_num: int | None = None,
     show_answer: bool = False,
 ) -> str:
+  """
+  Renders cards, photos/stickers, progress bar, and timer number via Pillow.
+  Urdu text is drawn cleanly via FFmpeg drawtext on top.
+  """
   bg = make_smooth_background().convert("RGBA")
-
-  q_font = get_urdu_font(76)
-  opt_font = get_urdu_font(62)
-  ans_font = get_urdu_font(48)
   badge_font = get_latin_font(44)
   timer_font = get_latin_font(60)
 
-  # Top smooth white question card
+  # Top white question card
   draw_smooth_card(
       bg,
       [54, 175, 1026, 595],
@@ -435,18 +385,8 @@ def render_state_frame(
       glow_color=(135, 255, 200, 95),
       width=6,
   )
-  tdraw = ImageDraw.Draw(bg)
-  tdraw.multiline_text(
-      (540, 385),
-      urdu_text(item["question"]),
-      fill=(10, 12, 16, 255),
-      font=q_font,
-      anchor="mm",
-      align="center",
-      spacing=22,
-  )
 
-  # Timer progress bar during 5-second countdown
+  # Timer bar during 5s countdown
   if timer_num is not None and not show_answer:
     bx1, by1, bx2, by2 = 85, 622, 865, 666
     draw_smooth_card(
@@ -467,13 +407,13 @@ def render_state_frame(
         fill=(235, 25, 115),
     )
 
-  # 3 Option cards (A, B, C)
+  # 3 Option cards
   start_y = 690
   row_h = 200
   gap = 22
   correct_idx = item.get("correct_index", 0)
 
-  for idx, (_, _, label) in enumerate(item["options"][:3]):
+  for idx in range(3):
     y1 = start_y + idx * (row_h + gap)
     y2 = y1 + row_h
     is_win = show_answer and (idx == correct_idx)
@@ -511,15 +451,7 @@ def render_state_frame(
         anchor="mm",
     )
 
-    row_draw.text(
-        (865, y1 + row_h // 2),
-        urdu_text(label),
-        fill=(10, 12, 16, 255),
-        font=opt_font,
-        anchor="rm",
-    )
-
-  # 5-second countdown badge
+  # Countdown badge
   if timer_num is not None and not show_answer:
     draw_smooth_card(
         bg,
@@ -550,17 +482,77 @@ def render_state_frame(
         glow_color=(55, 245, 125, 155),
         width=6,
     )
-    fdraw = ImageDraw.Draw(bg)
-    fdraw.text(
-        (475, 1392),
-        urdu_text(item["answer_label"]),
-        fill=(255, 255, 255, 255),
-        font=ans_font,
-        anchor="mm",
-    )
 
   bg.convert("RGB").save(out_png)
   return out_png
+
+
+def render_slot_clip_with_ffmpeg(
+    base_png: str,
+    item: dict,
+    dur: float,
+    out_mp4: str,
+    show_answer: bool = False,
+):
+  """
+  Uses FFmpeg drawtext to render crisp Urdu question, options, and answer label.
+  """
+  filters = [f"scale={W}:{H},fps=30,format=yuv420p"]
+  font_arg = escape_drawtext(URDU_FONT_FILE)
+
+  q_lines = [ln.strip() for ln in item["question"].split("\n") if ln.strip()]
+  if len(q_lines) == 1:
+    q_positions = [(q_lines[0], 385)]
+  else:
+    q_positions = [(q_lines[0], 335), (q_lines[1], 435)]
+
+  for q_line, y_pos in q_positions:
+    filters.append(
+        f"drawtext=fontfile='{font_arg}':text='{escape_drawtext(q_line)}':"
+        f"fontcolor=#0A0C10:fontsize=72:x=(w-text_w)/2:y={y_pos}-text_h/2"
+    )
+
+  start_y = 690
+  row_h = 200
+  gap = 22
+  for idx, (_, _, label) in enumerate(item["options"][:3]):
+    y_center = start_y + idx * (row_h + gap) + row_h // 2
+    filters.append(
+        f"drawtext=fontfile='{font_arg}':text='{escape_drawtext(label.strip())}':"
+        f"fontcolor=#0A0C10:fontsize=58:x=865-text_w:y={y_center}-text_h/2"
+    )
+
+  if show_answer and item.get("answer_label"):
+    filters.append(
+        f"drawtext=fontfile='{font_arg}':text='{escape_drawtext(item['answer_label'].strip())}':"
+        f"fontcolor=#FFFFFF:fontsize=46:x=(w-text_w)/2:y=1392-text_h/2"
+    )
+
+  vf_expr = ",".join(filters)
+  subprocess.run(
+      [
+          "ffmpeg",
+          "-y",
+          "-loop",
+          "1",
+          "-i",
+          base_png,
+          "-t",
+          f"{dur:.3f}",
+          "-vf",
+          vf_expr,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "fast",
+          "-crf",
+          "22",
+          out_mp4,
+      ],
+      check=True,
+      stdout=subprocess.DEVNULL,
+      stderr=subprocess.DEVNULL,
+  )
 
 
 async def _tts_save(text: str, out_mp3: str, rate: str = "+0%", pitch: str = "-2Hz"):
@@ -613,12 +605,6 @@ def _mp3_to_mono_samples(
 def build_dynamic_question_track(
     item: dict, out_wav: str, work_dir: str
 ) -> tuple[str, float, float, float]:
-  """
-  No fixed time limit:
-  1. Voice speaks full question & options completely.
-  2. 5-second countdown with crisp clock-second 'tick' every 1.0s.
-  3. 'teeeeeennnnnnn' tone right after 5s, followed by voice speaking the answer.
-  """
   sr = 44100
   base_name = os.path.basename(out_wav)
 
@@ -647,12 +633,11 @@ def build_dynamic_question_track(
   total_n = int(total_dur * sr)
   samples = [0.0] * total_n
 
-  # 1. Full question speech
   for i, val in enumerate(q_samples):
     if i < total_n:
       samples[i] += val
 
-  # 2. Clock second tick ('tick' every 1.0 second across 5s timer)
+  # Clock second tick every 1.0 second across 5s timer
   timer_start = intro_dur
   for sec_i in range(5):
     t_s = timer_start + sec_i * 1.0
@@ -667,7 +652,7 @@ def build_dynamic_question_track(
         body = 0.16 * env * math.sin(2 * math.pi * 680 * t_rel)
         samples[pos] += snap + body
 
-  # 3. 'teeeeeennnnnnn' tone + spoken answer
+  # 'teeeeeennnnnnn' tone + spoken answer
   ans_start = intro_dur + timer_dur
   b_start_i = int(ans_start * sr)
   b_len = int(buzz_dur * sr)
@@ -737,34 +722,13 @@ def main():
     ]
 
     for tag, dur, t_num, is_ans in slots:
-      png_p = os.path.join(work_dir, f"q{q_idx+1}_{tag}.png")
+      base_png = os.path.join(work_dir, f"q{q_idx+1}_{tag}_base.png")
       mp4_p = os.path.join(work_dir, f"q{q_idx+1}_{tag}.mp4")
-      render_state_frame(
-          item, thumb_paths, png_p, timer_num=t_num, show_answer=is_ans
+      render_base_card_png(
+          item, thumb_paths, base_png, timer_num=t_num, show_answer=is_ans
       )
-      subprocess.run(
-          [
-              "ffmpeg",
-              "-y",
-              "-loop",
-              "1",
-              "-i",
-              png_p,
-              "-t",
-              f"{dur:.3f}",
-              "-vf",
-              f"scale={W}:{H},fps=30,format=yuv420p",
-              "-c:v",
-              "libx264",
-              "-preset",
-              "fast",
-              "-crf",
-              "22",
-              mp4_p,
-          ],
-          check=True,
-          stdout=subprocess.DEVNULL,
-          stderr=subprocess.DEVNULL,
+      render_slot_clip_with_ffmpeg(
+          base_png, item, dur, mp4_p, show_answer=is_ans
       )
       video_parts.append(mp4_p)
 
