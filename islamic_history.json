@@ -1,5 +1,5 @@
 {
-  "run_count": 8,
+  "run_count": 9,
   "seen_questions": [
     "وضو کے فرائض کتنے ہیں؟",
     "غسل کے فرائض کتنے ہیں؟",
@@ -40,7 +40,12 @@
     "صلح حدیبیہ کس ہجری میں واقع ہوئی؟",
     "اصطلاح حدیث میں متواتر روایت کسے کہتے ہیں؟",
     "قرآن مجید میں کس صحابی کا نام صراحتا آیا ہے؟",
-    "نزول قرآن کے اعتبار سے سب سے پہلی مکمل سورہ کون سی ہے؟"
+    "نزول قرآن کے اعتبار سے سب سے پہلی مکمل سورہ کون سی ہے؟",
+    "قرآن مجید کی کس سورہ میں دو سجدہ تلاوت ہیں؟",
+    "غزوہ تبوک کس سن ہجری میں پیش آیا؟",
+    "نماز جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
+    "صحابہ کرام میں سب سے پہلے کس نے ہجرت حبشہ کی قیادت کی؟",
+    "قرآن مجید کی کس سورہ میں لفظ رحمن بار بار آیا ہے؟"
   ],
   "history": [
     {
@@ -360,6 +365,51 @@
           "answer_en": "Surah Al-Fatihah.",
           "spoken_q": "سوال: نزول قرآن کے اعتبار سے سب سے پہلی مکمل سورہ کون سی ہے؟",
           "spoken_a": "جواب: سورہ الفاتحہ۔"
+        }
+      ]
+    },
+    {
+      "run_no": 9,
+      "items": [
+        {
+          "question": "قرآن مجید کی کس سورہ میں دو سجدہ تلاوت ہیں؟",
+          "question_en": "Which Surah of the Quran contains two verses of prostration?",
+          "answer": "سورہ الحج میں۔",
+          "answer_en": "In Surah Al-Hajj.",
+          "spoken_q": "سوال: قرآن مجید کی کس سورہ میں دو سجدہ تلاوت ہیں؟",
+          "spoken_a": "جواب: سورہ الحج میں۔"
+        },
+        {
+          "question": "غزوہ تبوک کس سن ہجری میں پیش آیا؟",
+          "question_en": "In which Hijri year did the Expedition of Tabuk take place?",
+          "answer": "نو ہجری میں۔",
+          "answer_en": "In 9 AH.",
+          "spoken_q": "سوال: غزوہ تبوک کس سن ہجری میں پیش آیا؟",
+          "spoken_a": "جواب: نو ہجری میں۔"
+        },
+        {
+          "question": "نماز جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
+          "question_en": "How many Takbirs are recited in Salat al-Janazah?",
+          "answer": "چار تکبیریں۔",
+          "answer_en": "Four Takbirs.",
+          "spoken_q": "سوال: نماز جنازہ میں کتنی تکبیریں کہی جاتی ہیں؟",
+          "spoken_a": "جواب: چار تکبیریں۔"
+        },
+        {
+          "question": "صحابہ کرام میں سب سے پہلے کس نے ہجرت حبشہ کی قیادت کی؟",
+          "question_en": "Who led the first migration to Abyssinia among the Companions?",
+          "answer": "حضرت عثمان بن عفان رضی اللہ عنہ۔",
+          "answer_en": "Uthman ibn Affan (may Allah be pleased with him).",
+          "spoken_q": "سوال: صحابہ کرام میں سب سے پہلے کس نے ہجرت حبشہ کی قیادت کی؟",
+          "spoken_a": "جواب: حضرت عثمان بن عفان رضی اللہ عنہ نے۔"
+        },
+        {
+          "question": "قرآن مجید کی کس سورہ میں لفظ رحمن بار بار آیا ہے؟",
+          "question_en": "In which Surah is Ar-Rahman repeated across verses?",
+          "answer": "سورہ رحمن میں۔",
+          "answer_en": "In Surah Ar-Rahman.",
+          "spoken_q": "سوال: قرآن مجید کی کس سورہ میں لفظ رحمن بار بار آیا ہے؟",
+          "spoken_a": "جواب: سورہ رحمن میں۔"
         }
       ]
     }
