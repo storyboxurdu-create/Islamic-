@@ -35,30 +35,32 @@ FALLBACK_QUIZ = [
     {
         "question": "اللہ اپنے بندے سے\nکب سب سے زیادہ\nخوش ہوتا ہے؟",
         "options": [
-            ("A)", "person sleeping peacefully on bed", "جب وہ سوتا ہے"),
-            ("B)", "football match on green field", "جب وہ کھیلتا ہے"),
-            ("C)", "open quran inside mosque prayer", "جب وہ توبہ کرتا ہے"),
+            ("A)", "sleep bed night stars", "جب وہ سوتا ہے"),
+            ("B)", "football soccer field", "جب وہ کھیلتا ہے"),
+            ("C)", "quran mosque prayer", "جب وہ توبہ کرتا ہے"),
         ],
         "correct_index": 2,
         "answer_label": "درست جواب: C — جب وہ توبہ کرتا ہے",
-        "narration": (
+        "question_speech": (
             "اللہ اپنے بندے سے کب سب سے زیادہ خوش ہوتا ہے؟ "
-            "جب وہ سوتا ہے، کھیلتا ہے، یا توبہ کرتا ہے؟"
+            "سوتا ہے، کھیلتا ہے، یا توبہ کرتا ہے؟"
         ),
+        "answer_speech": "درست جواب ہے: جب وہ توبہ کرتا ہے۔",
     },
     {
         "question": "اسلام کی سب سے پہلی\nمسجد کون سی ہے؟",
         "options": [
-            ("A)", "white quba mosque architecture", "مسجدِ قبا"),
+            ("A)", "white quba mosque dome", "مسجدِ قبا"),
             ("B)", "green dome prophet mosque", "مسجدِ نبوی"),
-            ("C)", "dome of the rock jerusalem", "مسجدِ اقصیٰ"),
+            ("C)", "jerusalem mosque dome", "مسجدِ اقصیٰ"),
         ],
         "correct_index": 0,
         "answer_label": "درست جواب: A — مسجدِ قبا",
-        "narration": (
+        "question_speech": (
             "اسلام کی سب سے پہلی مسجد کون سی ہے؟ "
             "مسجدِ قبا، مسجدِ نبوی، یا مسجدِ اقصیٰ؟"
         ),
+        "answer_speech": "درست جواب ہے: مسجدِ قبا۔",
     },
 ]
 
@@ -106,20 +108,25 @@ def get_latin_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def urdu_text(text: str) -> str:
+  """
+    Fixes Urdu character joining AND right-to-left display order in PIL.
+    """
   if not text:
     return ""
-  out_lines = []
-  for raw_line in text.split("\n"):
-    s = raw_line.strip()
+  lines = []
+  for raw in text.split("\n"):
+    s = raw.strip()
     if not s:
-      out_lines.append("")
+      lines.append("")
       continue
     if HAS_BIDI:
       reshaped = arabic_reshaper.reshape(s)
-      out_lines.append(get_display(reshaped))
+      bidi_str = get_display(reshaped)
+      # In PIL, reversing shaped display string fixes reversed characters like 'دجسم' -> 'مسجد'
+      lines.append(bidi_str[::-1])
     else:
-      out_lines.append(s)
-  return "\n".join(out_lines)
+      lines.append(s[::-1])
+  return "\n".join(lines)
 
 
 def load_history() -> list[str]:
@@ -156,8 +163,8 @@ def generate_gemini_quiz() -> list[dict]:
 Generate 2 short, clear Islamic quiz questions in Urdu for a 30-second YouTube Short (15 seconds per question).
 Rules:
 - Each question: max 2 short lines, 3-5 Urdu words per line.
-- Each option (A, B, C): short Urdu phrase (2-4 words) + real English photo prompt describing a clear physical scene/object.
-- Include correct_index (0, 1, or 2), answer_label in Urdu, and a clear Urdu narration question (spoken in ~6 seconds).
+- Each option (A, B, C): short Urdu phrase (2-3 words) + clear English photo keyword phrase.
+- Include correct_index (0, 1, or 2), answer_label in Urdu, question_speech in natural Urdu (~4.5s), and answer_speech in natural Urdu (~2s).
 - Avoid repeating these questions:
 {avoid_text}
 
@@ -166,13 +173,14 @@ Return ONLY valid JSON list of 2 items:
   {{
     "question": "مختصر اردو سوال سطر 1\\nسطر 2",
     "options": [
-      ["A)", "real photo scene 1", "اردو آپشن 1"],
-      ["B)", "real photo scene 2", "اردو آپشن 2"],
-      ["C)", "real photo scene 3", "اردو آپشن 3"]
+      ["A)", "photo topic 1", "اردو آپشن 1"],
+      ["B)", "photo topic 2", "اردو آپشن 2"],
+      ["C)", "photo topic 3", "اردو آپشن 3"]
     ],
     "correct_index": 1,
     "answer_label": "درست جواب: B — اردو آپشن 2",
-    "narration": "مختصر اردو سوال اور آپشنز؟"
+    "question_speech": "مختصر اردو سوال؟",
+    "answer_speech": "درست جواب ہے: اردو آپشن 2۔"
   }}
 ]
 """
@@ -201,7 +209,12 @@ Return ONLY valid JSON list of 2 items:
               "options": opts,
               "correct_index": int(item.get("correct_index", 0)) % 3,
               "answer_label": str(item.get("answer_label", "")),
-              "narration": str(item.get("narration", item["question"])),
+              "question_speech": str(
+                  item.get("question_speech", item["question"])
+              ),
+              "answer_speech": str(
+                  item.get("answer_speech", item.get("answer_label", ""))
+              ),
           })
       if len(out) == 2:
         return out
@@ -210,19 +223,139 @@ Return ONLY valid JSON list of 2 items:
   return FALLBACK_QUIZ
 
 
+def build_illustrated_scene_thumb(
+    prompt: str, out_path: str, w: int = 320, h: int = 240
+) -> str:
+  """
+    Creates a detailed pictorial scene matching the topic if external photo APIs are unreachable.
+    """
+  low = (prompt or "").lower()
+  img = Image.new("RGB", (w, h), (135, 195, 235))
+  draw = ImageDraw.Draw(img)
+
+  if any(k in low for k in ["mosque", "masjid", "quba", "dome", "jerusalem"]):
+    # Sky + sun + mosque dome & minaret silhouette/scene
+    for y in range(int(h * 0.72)):
+      t = y / max(1, h * 0.72)
+      draw.line(
+          [(0, y), (w, y)],
+          fill=(
+              int(90 + 110 * t),
+              int(165 + 55 * t),
+              int(230 - 30 * t),
+          ),
+      )
+    draw.ellipse([w - 90, 22, w - 34, 78], fill=(255, 225, 110))
+    draw.rectangle([0, int(h * 0.72), w, h], fill=(75, 145, 85))
+    # Mosque base + dome + crescent
+    draw.rectangle(
+        [int(w * 0.22), int(h * 0.46), int(w * 0.78), int(h * 0.74)],
+        fill=(245, 242, 232),
+        outline=(170, 160, 140),
+        width=2,
+    )
+    draw.pieslice(
+        [int(w * 0.30), int(h * 0.24), int(w * 0.70), int(h * 0.64)],
+        180,
+        360,
+        fill=(42, 138, 88) if "green" in low else (240, 238, 228),
+        outline=(30, 80, 50),
+        width=2,
+    )
+    # Minaret
+    draw.rectangle(
+        [int(w * 0.14), int(h * 0.28), int(w * 0.22), int(h * 0.74)],
+        fill=(245, 242, 232),
+        outline=(170, 160, 140),
+        width=2,
+    )
+    draw.polygon(
+        [
+            (int(w * 0.13), int(h * 0.28)),
+            (int(w * 0.18), int(h * 0.16)),
+            (int(w * 0.23), int(h * 0.28)),
+        ],
+        fill=(42, 138, 88),
+    )
+  elif any(k in low for k in ["quran", "book", "prayer", "pray"]):
+    # Warm study/prayer scene with open book/pages
+    for y in range(h):
+      draw.line([(0, y), (w, y)], fill=(55 + y // 5, 42 + y // 6, 30))
+    draw.ellipse([w // 2 - 70, 24, w // 2 + 70, 164], fill=(255, 215, 110))
+    draw.polygon(
+        [
+            (45, int(h * 0.45)),
+            (w // 2, int(h * 0.52)),
+            (w // 2, int(h * 0.84)),
+            (45, int(h * 0.78)),
+        ],
+        fill=(252, 248, 235),
+        outline=(160, 130, 75),
+    )
+    draw.polygon(
+        [
+            (w - 45, int(h * 0.45)),
+            (w // 2, int(h * 0.52)),
+            (w // 2, int(h * 0.84)),
+            (w - 45, int(h * 0.78)),
+        ],
+        fill=(252, 248, 235),
+        outline=(160, 130, 75),
+    )
+    for line_i in range(4):
+      yy = int(h * 0.54) + line_i * 18
+      draw.line([(75, yy), (w // 2 - 20, yy + 6)], fill=(120, 100, 70), width=2)
+      draw.line(
+          [(w // 2 + 20, yy + 6), (w - 75, yy)], fill=(120, 100, 70), width=2
+      )
+  elif any(k in low for k in ["sleep", "bed", "night", "stars"]):
+    # Night sky + moon + stars + bed
+    for y in range(h):
+      draw.line([(0, y), (w, y)], fill=(18 + y // 8, 28 + y // 7, 68 + y // 6))
+    draw.ellipse([w - 95, 24, w - 35, 84], fill=(250, 238, 175))
+    for sx, sy in [(45, 40), (95, 75), (145, 35), (190, 68)]:
+      draw.ellipse([sx - 3, sy - 3, sx + 3, sy + 3], fill=(255, 255, 210))
+    draw.rectangle(
+        [35, int(h * 0.65), w - 35, int(h * 0.85)], fill=(120, 75, 45)
+    )
+    draw.rectangle(
+        [45, int(h * 0.55), 115, int(h * 0.66)], fill=(240, 240, 248)
+    )
+    draw.rectangle(
+        [115, int(h * 0.58), w - 45, int(h * 0.66)], fill=(70, 120, 190)
+    )
+  else:
+    # Field + ball / outdoor daytime scene
+    for y in range(int(h * 0.62)):
+      draw.line([(0, y), (w, y)], fill=(115, 190, 245))
+    draw.rectangle([0, int(h * 0.62), w, h], fill=(52, 155, 72))
+    draw.ellipse([35, 24, 95, 84], fill=(255, 220, 80))
+    cx, cy, r = w // 2, int(h * 0.68), 38
+    draw.ellipse(
+        [cx - r, cy - r, cx + r, cy + r],
+        fill=(250, 250, 250),
+        outline=(30, 30, 30),
+        width=3,
+    )
+    draw.ellipse([cx - 12, cy - 12, cx + 12, cy + 12], fill=(35, 35, 35))
+
+  img.save(out_path)
+  return out_path
+
+
 def fetch_real_photo(prompt: str, out_path: str) -> str:
   api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
   if api_key and prompt:
     try:
       q = quote(" ".join(prompt.split()[:4]))
       url = f"[https://pixabay.com/api/?key=](https://pixabay.com/api/?key=){api_key}&q={q}&image_type=photo&safesearch=true&per_page=3"
-      r = requests.get(url, timeout=20)
+      r = requests.get(url, timeout=15)
       r.raise_for_status()
       hits = r.json().get("hits", [])
       if hits:
         img_url = hits[0].get("webformatURL") or hits[0].get("largeImageURL")
         if img_url:
-          ir = requests.get(img_url, timeout=25)
+          ir = requests.get(img_url, timeout=20)
           ir.raise_for_status()
           with open(out_path, "wb") as f:
             f.write(ir.content)
@@ -233,22 +366,20 @@ def fetch_real_photo(prompt: str, out_path: str) -> str:
 
   try:
     photo_prompt = quote(
-        f"realistic photography, {prompt}, natural lighting, sharp focus, no text"
+        f"realistic photography, {prompt}, clear subject, natural light, no text"
     )
     seed = random.randint(1000, 999999)
-    p_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){photo_prompt}?width=400&height=300&seed={seed}&nologo=true"
-    pr = requests.get(p_url, timeout=35)
+    p_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){photo_prompt}?width=360&height=260&seed={seed}&nologo=true"
+    pr = requests.get(p_url, timeout=20)
     pr.raise_for_status()
     with open(out_path, "wb") as f:
       f.write(pr.content)
     Image.open(out_path).verify()
     return out_path
   except Exception as e:
-    print("Photo fallback error:", e)
+    print("Pollinations fallback:", e)
 
-  im = Image.new("RGB", (400, 300), (210, 185, 140))
-  im.save(out_path)
-  return out_path
+  return build_illustrated_scene_thumb(prompt, out_path)
 
 
 def fit_photo(path: str, w: int, h: int) -> Image.Image:
@@ -312,7 +443,7 @@ def render_state_frame(
   bg = make_smooth_background().convert("RGBA")
 
   q_font = get_urdu_font(64)
-  opt_font = get_urdu_font(50)
+  opt_font = get_urdu_font(52)
   ans_font = get_urdu_font(44)
   badge_font = get_latin_font(52)
   timer_font = get_latin_font(68)
@@ -430,90 +561,114 @@ def render_state_frame(
   return out_png
 
 
-async def _tts_natural(text: str, out_mp3: str):
+async def _tts_speak(text: str, out_mp3: str, rate: str = "+5%"):
   for voice in ["ur-PK-UzmaNeural", "ur-PK-AsadNeural"]:
     try:
-      comm = edge_tts.Communicate(text, voice=voice, rate="+0%", pitch="+0Hz")
+      comm = edge_tts.Communicate(text, voice=voice, rate=rate, pitch="+0Hz")
       await comm.save(out_mp3)
       if os.path.exists(out_mp3) and os.path.getsize(out_mp3) > 400:
         return
     except Exception as e:
-      print("TTS voice retry:", voice, e)
+      print("TTS retry:", voice, e)
 
 
-def build_question_audio_15s(narration: str, out_wav: str, work_dir: str) -> str:
+def _mix_mp3_into_samples(
+    mp3_path: str,
+    samples: list[float],
+    start_sec: float,
+    max_dur_sec: float,
+    sr: int,
+    work_dir: str,
+    tag: str,
+):
+  if not (HAS_TTS and os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 400):
+    return
+  wav_tmp = os.path.join(work_dir, f"{tag}_tmp.wav")
+  try:
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            mp3_path,
+            "-t",
+            str(max_dur_sec),
+            "-ar",
+            str(sr),
+            "-ac",
+            "1",
+            "-f",
+            "wav",
+            wav_tmp,
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    with wave.open(wav_tmp, "rb") as wf:
+      n = wf.getnframes()
+      raw = struct.unpack(f"<{n}h", wf.readframes(n))
+      s_idx = int(start_sec * sr)
+      for i in range(n):
+        pos = s_idx + i
+        if 0 <= pos < len(samples):
+          samples[pos] += (raw[i] / 32768.0) * 0.95
+  except Exception as e:
+    print("Mix speech error:", tag, e)
+
+
+def build_question_audio_15s(item: dict, out_wav: str, work_dir: str) -> str:
   """
-  15-second audio for 1 question:
-  - 0.0s  .. 6.8s  : Natural Urdu voice-over
-  - 7.0s  .. 12.0s : 5-second 'tick-tick-tick-tick' timer
-  - 12.0s .. 12.7s : 5th-second end 'teeeeeennnnnnn' tone
-  - 12.7s .. 15.0s : Answer reveal tail
+  15s per question:
+  - 0.0s  .. 5.5s  : Question & options spoken by voice
+  - 5.5s  .. 10.5s : Fast tick-tick-tick timer during 5-second countdown
+  - 10.5s .. 11.3s : Final 'too' (teeeeeennnnnnn) tone
+  - 11.4s .. 15.0s : Spoken answer ("درست جواب ہے...")
   """
   sr = 44100
   total_samples = int(PER_QUESTION_SEC * sr)
   samples = [0.0] * total_samples
 
-  voice_mp3 = os.path.join(work_dir, f"{os.path.basename(out_wav)}_v.mp3")
-  voice_wav = os.path.join(work_dir, f"{os.path.basename(out_wav)}_v.wav")
-  if HAS_TTS and narration.strip():
-    try:
-      asyncio.run(_tts_natural(narration, voice_mp3))
-      if os.path.exists(voice_mp3) and os.path.getsize(voice_mp3) > 400:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                voice_mp3,
-                "-af",
-                "atempo=1.0",
-                "-t",
-                "6.7",
-                "-ar",
-                str(sr),
-                "-ac",
-                "1",
-                "-f",
-                "wav",
-                voice_wav,
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        with wave.open(voice_wav, "rb") as wf:
-          n = wf.getnframes()
-          raw = struct.unpack(f"<{n}h", wf.readframes(n))
-          for i in range(min(n, int(6.75 * sr))):
-            samples[i] += (raw[i] / 32768.0) * 0.95
-    except Exception as e:
-      print("Voice mix fallback:", e)
+  q_speech = item.get("question_speech", "")
+  a_speech = item.get("answer_speech", item.get("answer_label", ""))
+  base_name = os.path.basename(out_wav)
 
-  # 5 seconds of 'tick-tick-tick-tick' from 7.0s to 12.0s
-  for tick_idx in range(5):
-    t_start = 7.0 + tick_idx * 1.0
-    start_i = int(t_start * sr)
-    tick_len = int(0.08 * sr)
+  if HAS_TTS and q_speech.strip():
+    q_mp3 = os.path.join(work_dir, f"{base_name}_q.mp3")
+    asyncio.run(_tts_speak(q_speech, q_mp3, rate="+8%"))
+    _mix_mp3_into_samples(q_mp3, samples, 0.0, 5.4, sr, work_dir, f"{base_name}_q")
+
+  # Fast 'tik-tik-tik' every 0.25s across the 5-second timer window (5.5s .. 10.5s)
+  tick_t = 5.5
+  while tick_t < 10.5:
+    start_i = int(tick_t * sr)
+    tick_len = int(0.055 * sr)
     for k in range(tick_len):
       idx = start_i + k
       if idx < total_samples:
-        env = math.exp(-k / (0.025 * sr))
-        val = 0.42 * env * math.sin(2 * math.pi * 1150 * (k / sr))
-        samples[idx] += val
+        env = math.exp(-k / (0.015 * sr))
+        samples[idx] += 0.45 * env * math.sin(2 * math.pi * 1320 * (k / sr))
+    tick_t += 0.25
 
-  # 5th-second end 'teeeeeennnnnnn' sustained tone from 12.0s to 12.7s
-  b_start = int(12.0 * sr)
-  b_len = int(0.7 * sr)
+  # Final 'too' (teeeeeennnnnnn) at 10.5s .. 11.3s
+  b_start = int(10.5 * sr)
+  b_len = int(0.8 * sr)
   for k in range(b_len):
     idx = b_start + k
     if idx < total_samples:
       t_rel = k / sr
-      fade_in = min(1.0, k / (0.02 * sr))
+      fade_in = min(1.0, k / (0.015 * sr))
       fade_out = min(1.0, (b_len - k) / (0.06 * sr))
-      tone = 0.34 * math.sin(2 * math.pi * 740 * t_rel) + 0.16 * math.sin(
-          2 * math.pi * 1480 * t_rel
+      tone = 0.34 * math.sin(2 * math.pi * 680 * t_rel) + 0.14 * math.sin(
+          2 * math.pi * 1360 * t_rel
       )
       samples[idx] += tone * fade_in * fade_out
+
+  # Spoken answer right after 'too' (11.4s .. 15.0s)
+  if HAS_TTS and a_speech.strip():
+    a_mp3 = os.path.join(work_dir, f"{base_name}_a.mp3")
+    asyncio.run(_tts_speak(a_speech, a_mp3, rate="+5%"))
+    _mix_mp3_into_samples(a_mp3, samples, 11.4, 3.5, sr, work_dir, f"{base_name}_a")
 
   with wave.open(out_wav, "wb") as out_wf:
     out_wf.setnchannels(2)
@@ -523,8 +678,7 @@ def build_question_audio_15s(narration: str, out_wav: str, work_dir: str) -> str
     for s in samples:
       clamped = max(-0.98, min(0.98, s))
       iv = int(clamped * 32767)
-      rec = struct.pack("<hh", iv, iv)
-      packed.extend(rec)
+      packed.extend(struct.pack("<hh", iv, iv))
     out_wf.writeframes(packed)
 
   return out_wav
@@ -545,18 +699,18 @@ def main():
       p_file = os.path.join(work_dir, f"q{q_idx+1}_opt{o_idx+1}.jpg")
       thumb_paths.append(fetch_real_photo(photo_query, p_file))
 
-    # Each question = 15.0s:
-    # 0.0..7.0s   (7.0s) : Question + options + voice-over
-    # 7.0..12.0s  (5.0s) : 5-second countdown (5..1) with tick-tick-tick-tick
-    # 12.0..15.0s (3.0s) : 5th-second 'teeeeeennnnnnn' + answer highlight
+    # 15.0s per question:
+    # 0.0..5.5s   (5.5s) : Question & options while voice speaks
+    # 5.5..10.5s  (5.0s) : 5-second countdown (5..1) with fast tick-tick
+    # 10.5..15.0s (4.5s) : Final 'too' + answer highlight + spoken answer
     slots = [
-        ("q_intro", 7.0, None, False),
+        ("q_intro", 5.5, None, False),
         ("t_5", 1.0, 5, False),
         ("t_4", 1.0, 4, False),
         ("t_3", 1.0, 3, False),
         ("t_2", 1.0, 2, False),
         ("t_1", 1.0, 1, False),
-        ("t_ans", 3.0, None, True),
+        ("t_ans", 4.5, None, True),
     ]
 
     for tag, dur, t_num, is_ans in slots:
@@ -592,7 +746,7 @@ def main():
       video_parts.append(mp4_p)
 
     wav_p = os.path.join(work_dir, f"q{q_idx+1}_15s.wav")
-    build_question_audio_15s(item.get("narration", ""), wav_p, work_dir)
+    build_question_audio_15s(item, wav_p, work_dir)
     audio_parts.append(wav_p)
 
   v_list = os.path.join(work_dir, "v_list.txt")
