@@ -19,7 +19,7 @@ PAUSE_SEC = 0.35
 USE_VOICE = True
 URDU_VOICE = "ur-PK-AsadNeural"
 VOICE_RATE = "+4%"
-CURTAIN_OPEN_SEC = 0.45  # Fast curtain reveal at start
+CURTAIN_OPEN_SEC = 0.45
 
 HISTORY_FILE = "islamic_history.json"
 FINAL_SHORT_FILE = Path("final_islamic_short.mp4")
@@ -231,7 +231,6 @@ UNIQUE_QA_BANK = [
 
 
 def to_spoken_urdu(text: str) -> str:
-    """Clean diacritics and tricky Arabic-script variants so Urdu TTS pronounces words clearly."""
     cleaned = re.sub(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]", "", text)
     replacements = {
         "سورۃ": "سورہ",
@@ -388,28 +387,20 @@ def draw_teacher_standing_speaking(
     t_sec: float,
     speaking: bool = True,
 ):
-    """Draw teacher standing continuously on left side, moving stick & talking while speaking."""
     bob_y = int(4 * math.sin(t_sec * (7.0 if speaking else 2.2)))
     sway_x = int(3 * math.sin(t_sec * (4.5 if speaking else 1.8)))
     bx = base_x + sway_x
     by = base_y + bob_y
 
-    # Floor shadow
     draw.ellipse([base_x - 75, base_y - 10, base_x + 75, base_y + 18], fill=(6, 20, 25))
-
-    # Legs / trousers
     draw.rounded_rectangle([bx - 34, by - 145, bx - 6, base_y], radius=10, fill=(30, 41, 59))
     draw.rounded_rectangle([bx + 6, by - 145, bx + 34, base_y], radius=10, fill=(30, 41, 59))
-
-    # Shoes
     draw.rounded_rectangle([bx - 44, base_y - 18, bx - 2, base_y + 4], radius=8, fill=(15, 23, 42))
     draw.rounded_rectangle([bx + 4, base_y - 18, bx + 46, base_y + 4], radius=8, fill=(15, 23, 42))
 
-    # Torso & waistcoat
     draw.rounded_rectangle([bx - 50, by - 295, bx + 50, by - 135], radius=22, fill=(248, 250, 252), outline=(217, 119, 6), width=4)
     draw.rounded_rectangle([bx - 46, by - 292, bx + 46, by - 165], radius=18, fill=(15, 118, 110))
 
-    # Head & cap
     head_cx = bx
     head_cy = by - 345
     draw.ellipse([head_cx - 42, head_cy - 44, head_cx + 42, head_cy + 44], fill=(253, 186, 116), outline=(120, 53, 15), width=3)
@@ -418,7 +409,6 @@ def draw_teacher_standing_speaking(
     draw.ellipse([head_cx + 8, head_cy - 10, head_cx + 18, head_cy], fill=(17, 24, 39))
     draw.rounded_rectangle([head_cx - 44, head_cy - 62, head_cx + 44, head_cy - 24], radius=14, fill=(217, 119, 6))
 
-    # Animated speaking mouth
     if speaking:
         mouth_open = int(5 + 5 * abs(math.sin(t_sec * 16.0)))
         draw.ellipse(
@@ -428,7 +418,6 @@ def draw_teacher_standing_speaking(
     else:
         draw.line([(head_cx - 9, head_cy + 13), (head_cx + 9, head_cy + 13)], fill=(120, 53, 15), width=3)
 
-    # Right arm & hand holding pointer stick moving toward the question/answer card
     shoulder_x = bx + 36
     shoulder_y = by - 258
     hand_x = bx + 86 + int(6 * math.sin(t_sec * (6.5 if speaking else 2.0)))
@@ -446,9 +435,7 @@ def draw_teacher_standing_speaking(
 
 
 def draw_curtains_overlay(draw: ImageDraw.ImageDraw, open_progress: float):
-    """Fast curtain pull-back revealing the underlying card without any cut."""
     p = max(0.0, min(1.0, open_progress))
-    # Ease-out so curtain opens rapidly and smoothly
     eased = 1.0 - ((1.0 - p) ** 2.4)
     max_w = (WIDTH // 2) + 25
     cur_w = int(max_w * (1.0 - eased))
@@ -456,26 +443,30 @@ def draw_curtains_overlay(draw: ImageDraw.ImageDraw, open_progress: float):
         return
 
     folds = 7
-    fold_w = max(8, cur_w // folds)
+    fold_w = max(1, cur_w // folds)
     top_y = 224
     bot_y = HEIGHT - 162
 
-    # Left curtain
     for i in range(folds):
         x1 = i * fold_w
         x2 = min(cur_w, (i + 1) * fold_w)
-        clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
-        draw.rectangle([x1, top_y, x2, bot_y], fill=clr)
-    draw.rectangle([max(0, cur_w - 14), top_y, cur_w, bot_y], fill=(245, 158, 11))
+        if x2 > x1:
+            clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
+            draw.rectangle([x1, top_y, x2, bot_y], fill=clr)
+    left_trim_x1 = max(0, cur_w - 14)
+    if cur_w > left_trim_x1:
+        draw.rectangle([left_trim_x1, top_y, cur_w, bot_y], fill=(245, 158, 11))
 
-    # Right curtain
     right_start = WIDTH - cur_w
     for i in range(folds):
         x1 = right_start + (i * fold_w)
         x2 = min(WIDTH, right_start + ((i + 1) * fold_w))
-        clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
-        draw.rectangle([x1, top_y, x2, bot_y], fill=clr)
-    draw.rectangle([right_start, top_y, min(WIDTH, right_start + 14), bot_y], fill=(245, 158, 11))
+        if x2 > x1:
+            clr = (153, 27, 27) if i % 2 == 0 else (185, 28, 28)
+            draw.rectangle([x1, top_y, x2, bot_y], fill=clr)
+    right_trim_x2 = min(WIDTH, right_start + 14)
+    if right_trim_x2 > right_start:
+        draw.rectangle([right_start, top_y, right_trim_x2, bot_y], fill=(245, 158, 11))
 
 
 def make_slide(
@@ -498,7 +489,6 @@ def make_slide(
     img = Image.new("RGB", (WIDTH, HEIGHT), bg_color)
     draw = ImageDraw.Draw(img)
 
-    # Top & bottom bars
     draw.rectangle([0, 0, WIDTH, 210], fill=(16, 185, 129))
     draw.rectangle([0, 210, WIDTH, 224], fill=(245, 158, 11))
     draw_centered_text(draw, top_heading, WIDTH // 2, 55, header_font, (255, 255, 255))
@@ -507,7 +497,6 @@ def make_slide(
     draw.rectangle([0, HEIGHT - 162, WIDTH, HEIGHT - 150], fill=(245, 158, 11))
     draw_centered_text(draw, "الحمد للہ", WIDTH // 2, HEIGHT - 115, header_font, (254, 243, 199))
 
-    # Question/Answer card positioned cleanly beside the standing teacher
     card_left = 265
     card_right = WIDTH - 36
     card_top = 275
@@ -562,10 +551,8 @@ def make_slide(
             draw_centered_text(draw, line, card_cx, cur_y, fnt, clr)
         cur_y += lh
 
-    # Teacher always standing and moving throughout the video
     draw_teacher_standing_speaking(draw, base_x=135, base_y=HEIGHT - 205, t_sec=t_sec, speaking=speaking)
 
-    # Fast opening curtain revealing the card smoothly underneath
     if curtain_progress < 1.0:
         draw_curtains_overlay(draw, curtain_progress)
 
@@ -678,12 +665,8 @@ def render_multi_qa_video(
             q_dur = 2.5
             a_dur = 2.5
 
-        # On Q1, curtain opens rapidly right at the beginning revealing Question 1 seamlessly
         def build_q_frame(out_p: Path, local_t: float, abs_t: float, _prog: float):
-            if q_num == 1:
-                c_prog = min(1.0, local_t / CURTAIN_OPEN_SEC)
-            else:
-                c_prog = 1.0
+            c_prog = min(1.0, local_t / CURTAIN_OPEN_SEC) if q_num == 1 else 1.0
             make_slide(
                 "بسم اللہ الرحمن الرحیم",
                 f"سوال {q_num}",
