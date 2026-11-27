@@ -39,9 +39,9 @@ FALLBACK_QUIZ = [
     {
         "question": "زندگی کی آخری ساعتوں میں\nانسان کو کیا یاد آتا ہے؟",
         "options": [
-            ("A)", "money bag cash coins", "دولت"),
-            ("B)", "family parents children", "رشتے"),
-            ("C)", "mistake regret error", "غلطیاں"),
+            ("A)", "money bag", "دولت"),
+            ("B)", "family", "رشتے"),
+            ("C)", "mistake", "غلطیاں"),
         ],
         "correct_index": 2,
         "answer_label": "درست جواب: غلطیاں",
@@ -54,9 +54,9 @@ FALLBACK_QUIZ = [
     {
         "question": "اللہ اپنے بندے سے\nکب سب سے زیادہ خوش ہوتا ہے؟",
         "options": [
-            ("A)", "sleeping bed night", "جب وہ سوتا ہے"),
-            ("B)", "football soccer field", "جب وہ کھیلتا ہے"),
-            ("C)", "quran prayer mosque", "جب وہ توبہ کرتا ہے"),
+            ("A)", "sleep bed", "جب وہ سوتا ہے"),
+            ("B)", "football", "جب وہ کھیلتا ہے"),
+            ("C)", "mosque quran", "جب وہ توبہ کرتا ہے"),
         ],
         "correct_index": 2,
         "answer_label": "درست جواب: جب وہ توبہ کرتا ہے",
@@ -70,26 +70,30 @@ FALLBACK_QUIZ = [
 
 
 def discover_urdu_font() -> str | None:
-  candidates = [
+  # Prefer Arabic/Urdu fonts first so ligatures and Urdu glyphs render properly
+  preferred = [
       "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
       "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
       "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
       "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
   ]
-  for p in candidates:
+  for p in preferred:
     if os.path.exists(p):
       return p
   try:
     out = subprocess.check_output(
         ["fc-list", ":lang=ur", "file"], text=True, stderr=subprocess.DEVNULL
     )
-    files = [
-        line.split(":")[0].strip()
-        for line in out.splitlines()
-        if line.strip().lower().endswith((".ttf", ".otf"))
-    ]
+    files = []
+    for line in out.splitlines():
+      p = line.split(":")[0].strip()
+      if p and os.path.exists(p) and p.lower().endswith((".ttf", ".otf")):
+        files.append(p)
     for f in files:
-      if "bold" in f.lower():
+      if "arabic" in f.lower() and "bold" in f.lower():
+        return f
+    for f in files:
+      if "arabic" in f.lower():
         return f
     if files:
       return files[0]
@@ -119,24 +123,23 @@ def get_latin_font(size: int) -> ImageFont.FreeTypeFont:
 
 def urdu_text(text: str) -> str:
   """
-    Clean Urdu shaping for PIL: reshapes Arabic/Urdu characters and applies bidi display
-    without reversing character/word order manually.
+    Shapes Urdu text cleanly for PIL rendering.
     """
   if not text:
     return ""
-  out = []
+  lines = []
   for raw in text.split("\n"):
-    line = raw.strip()
-    if not line:
-      out.append("")
+    s = raw.strip()
+    if not s:
+      lines.append("")
       continue
     if HAS_RESHAPER and HAS_BIDI:
-      out.append(get_display(arabic_reshaper.reshape(line)))
+      lines.append(get_display(arabic_reshaper.reshape(s)))
     elif HAS_RESHAPER:
-      out.append(arabic_reshaper.reshape(line))
+      lines.append(arabic_reshaper.reshape(s))
     else:
-      out.append(line)
-  return "\n".join(out)
+      lines.append(s)
+  return "\n".join(lines)
 
 
 def load_history() -> list[str]:
@@ -172,8 +175,8 @@ def generate_gemini_quiz() -> list[dict]:
   prompt = f"""
 Generate 2 short, clear, engaging Islamic quiz questions in Urdu for a YouTube Short.
 Rules:
-- Use simple, natural Urdu (max 2 short lines per question, 1-4 Urdu words per option).
-- Each option (A, B, C) must include a clear 2-4 word English keyword for photo/sticker matching.
+- Use simple, natural Urdu (max 2 short lines per question, 1-3 Urdu words per option).
+- Each option (A, B, C) must include 1-2 simple English search words for Pixabay (e.g. "money", "family", "mosque", "quran", "sleep").
 - Include correct_index (0, 1, or 2), answer_label in Urdu, question_speech (complete Urdu question + options), and answer_speech (clear Urdu answer).
 - Avoid repeating these previous questions:
 {avoid_text}
@@ -183,9 +186,9 @@ Return ONLY valid JSON list of 2 items:
   {{
     "question": "آسان اردو سوال سطر 1\\nسطر 2",
     "options": [
-      ["A)", "keyword 1", "آسان آپشن 1"],
-      ["B)", "keyword 2", "آسان آپشن 2"],
-      ["C)", "keyword 3", "آسان آپشن 3"]
+      ["A)", "simple word 1", "آسان آپشن 1"],
+      ["B)", "simple word 2", "آسان آپشن 2"],
+      ["C)", "simple word 3", "آسان آپشن 3"]
     ],
     "correct_index": 1,
     "answer_label": "درست جواب: آسان آپشن 2",
@@ -251,136 +254,94 @@ def _download_valid_img(url: str, out_path: str, timeout: int = 15) -> bool:
   return True
 
 
-def build_realistic_sticker(
+def build_clean_sticker_thumb(
     query: str, urdu_label: str, out_path: str, w: int = 260, h: int = 190
 ) -> str:
   """
-    Creates a clean glossy sticker-style visual matching the topic when real photos are unavailable.
+    Clean high-contrast sticker-style card matching the option topic when real photos are unavailable.
     """
   low = f"{query} {urdu_label}".lower()
-  img = Image.new("RGBA", (w, h), (255, 255, 255, 0))
+  img = Image.new("RGB", (w, h), (255, 255, 255))
   draw = ImageDraw.Draw(img)
-
-  # Sticker white border backing
-  pad = 12
-  draw.rounded_rectangle(
-      [pad, pad, w - pad, h - pad],
-      radius=28,
-      fill=(255, 255, 255, 255),
-      outline=(210, 218, 228, 255),
-      width=4,
-  )
 
   cx, cy = w // 2, h // 2
   if any(k in low for k in ["money", "cash", "coin", "دولت", "پیسہ", "مال"]):
-    # Glossy green money pouch sticker + gold coin
+    # Money sack sticker
     draw.rounded_rectangle(
-        [cx - 56, cy - 22, cx + 56, cy + 44],
-        radius=16,
-        fill=(34, 152, 78, 255),
-        outline=(20, 95, 48, 255),
+        [cx - 52, cy - 22, cx + 52, cy + 48],
+        radius=20,
+        fill=(186, 134, 72),
+        outline=(95, 62, 25),
         width=3,
     )
-    draw.polygon(
-        [(cx - 24, cy - 22), (cx + 24, cy - 22), (cx + 36, cy - 42), (cx - 36, cy - 42)],
-        fill=(46, 175, 92, 255),
-    )
-    draw.ellipse(
-        [cx - 20, cy - 8, cx + 20, cy + 32],
-        fill=(255, 212, 58, 255),
-        outline=(185, 135, 15, 255),
+    draw.rounded_rectangle(
+        [cx - 32, cy - 38, cx + 32, cy - 16],
+        radius=8,
+        fill=(158, 108, 52),
+        outline=(95, 62, 25),
         width=3,
     )
-  elif any(k in low for k in ["family", "parent", "love", "رشتے", "ماں", "باپ", "بچے"]):
-    # Warm 3-person family sticker (parent left, parent right, child center)
-    for dx, r_head, body_h, col in [
-        (-42, 18, 42, (58, 128, 215, 255)),
-        (42, 18, 42, (224, 86, 122, 255)),
-        (0, 14, 30, (245, 166, 48, 255)),
+    f = get_latin_font(44)
+    draw.text((cx, cy + 14), "$", fill=(255, 235, 130), font=f, anchor="mm")
+  elif any(k in low for k in ["family", "parent", "love", "رشتے", "ماں", "باپ", "ملاقات"]):
+    # Family figures sticker
+    for dx, r_h, b_h, col in [
+        (-44, 17, 42, (52, 122, 212)),
+        (44, 17, 42, (224, 82, 118)),
+        (0, 13, 30, (242, 158, 42)),
     ]:
-      hy = cy - 24 + (8 if r_head == 14 else 0)
-      draw.ellipse(
-          [cx + dx - r_head, hy - r_head, cx + dx + r_head, hy + r_head],
-          fill=col,
-      )
-      by1 = hy + r_head + 4
+      hy = cy - 24 + (8 if r_h == 13 else 0)
+      draw.ellipse([cx + dx - r_h, hy - r_h, cx + dx + r_h, hy + r_h], fill=col)
+      by1 = hy + r_h + 4
       draw.rounded_rectangle(
-          [cx + dx - r_head - 4, by1, cx + dx + r_head + 4, by1 + body_h],
-          radius=14,
+          [cx + dx - r_h - 3, by1, cx + dx + r_h + 3, by1 + b_h],
+          radius=12,
           fill=col,
       )
-  elif any(k in low for k in ["mistake", "regret", "error", "غلطیاں", "گناہ", "غلط"]):
-    # Bold glossy red X sticker badge
+  elif any(k in low for k in ["mistake", "error", "غلطیاں", "گناہ", "غلط"]):
+    # Red cross sticker
     draw.ellipse(
         [cx - 46, cy - 46, cx + 46, cy + 46],
-        fill=(224, 48, 60, 255),
-        outline=(140, 20, 30, 255),
-        width=4,
+        fill=(220, 44, 56),
+        outline=(130, 18, 28),
+        width=3,
     )
-    draw.line(
-        [(cx - 20, cy - 20), (cx + 20, cy + 20)],
-        fill=(255, 255, 255, 255),
-        width=9,
-    )
-    draw.line(
-        [(cx + 20, cy - 20), (cx - 20, cy + 20)],
-        fill=(255, 255, 255, 255),
-        width=9,
-    )
-  elif any(k in low for k in ["mosque", "masjid", "quran", "prayer", "توبہ", "مسجد", "نماز", "قرآن"]):
-    # Glossy emerald dome + gold crescent sticker
-    draw.pieslice(
-        [cx - 48, cy - 46, cx + 48, cy + 50],
-        180,
-        360,
-        fill=(22, 145, 98, 255),
-    )
-    draw.rounded_rectangle(
-        [cx - 48, cy + 2, cx + 48, cy + 44],
-        radius=10,
-        fill=(245, 242, 232, 255),
-        outline=(160, 155, 140, 255),
-        width=2,
-    )
-    draw.ellipse(
-        [cx - 10, cy - 62, cx + 10, cy - 42],
-        fill=(255, 208, 52, 255),
-    )
+    draw.line([(cx - 20, cy - 20), (cx + 20, cy + 20)], fill=(255, 255, 255), width=8)
+    draw.line([(cx + 20, cy - 20), (cx - 20, cy + 20)], fill=(255, 255, 255), width=8)
+  elif any(k in low for k in ["mosque", "masjid", "quran", "prayer", "توبہ", "مسجد", "نماز", "معافی"]):
+    # Dome + hands/book sticker
+    draw.pieslice([cx - 52, cy - 42, cx + 52, cy + 52], 180, 360, fill=(22, 145, 96))
+    draw.rectangle([cx - 52, cy + 4, cx + 52, cy + 44], fill=(242, 238, 224), outline=(140, 135, 120), width=2)
+    draw.ellipse([cx - 9, cy - 58, cx + 9, cy - 40], fill=(245, 198, 42))
   elif any(k in low for k in ["sleep", "bed", "night", "سوتا", "نیند"]):
-    # Crescent moon + pillow sticker
-    draw.ellipse([cx - 32, cy - 48, cx + 32, cy + 16], fill=(255, 210, 55, 255))
-    draw.ellipse([cx - 14, cy - 52, cx + 42, cy + 4], fill=(255, 255, 255, 255))
-    draw.rounded_rectangle(
-        [cx - 46, cy + 16, cx + 46, cy + 44],
-        radius=12,
-        fill=(88, 128, 215, 255),
-    )
+    # Pillow + moon sticker
+    draw.rounded_rectangle([cx - 54, cy - 10, cx + 54, cy + 40], radius=16, fill=(72, 124, 212))
+    draw.ellipse([cx - 22, cy - 48, cx + 22, cy - 4], fill=(250, 204, 42))
+    draw.ellipse([cx - 6, cy - 52, cx + 32, cy - 14], fill=(255, 255, 255))
   else:
-    # Sports ball sticker
+    # Football / ball sticker
     draw.ellipse(
         [cx - 44, cy - 44, cx + 44, cy + 44],
-        fill=(248, 250, 252, 255),
-        outline=(35, 42, 55, 255),
+        fill=(248, 250, 252),
+        outline=(30, 36, 48),
         width=4,
     )
-    draw.ellipse([cx - 14, cy - 14, cx + 14, cy + 14], fill=(35, 42, 55, 255))
+    draw.ellipse([cx - 14, cy - 14, cx + 14, cy + 14], fill=(30, 36, 48))
 
-  # Subtle white sticker drop shadow
-  bg = Image.new("RGBA", (w, h), (255, 255, 255, 255))
-  bg.alpha_composite(img)
-  bg.convert("RGB").save(out_path)
+  img.save(out_path)
   return out_path
 
 
 def fetch_option_photo(query: str, urdu_label: str, out_path: str) -> str:
   api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
-  clean_q = " ".join((query or "").split()[:4])
+  words = [w for w in (query or "").split() if w.isalpha()]
+  short_q = " ".join(words[:2]) if words else " ".join((query or "").split()[:2])
 
-  if api_key and clean_q:
+  if api_key and short_q:
     try:
       url = (
           f"[https://pixabay.com/api/?key=](https://pixabay.com/api/?key=){api_key}"
-          f"&q={quote(clean_q)}&image_type=photo&safesearch=true&per_page=5"
+          f"&q={quote(short_q)}&image_type=photo&safesearch=true&per_page=5"
       )
       r = requests.get(url, timeout=12)
       r.raise_for_status()
@@ -390,9 +351,9 @@ def fetch_option_photo(query: str, urdu_label: str, out_path: str) -> str:
         if img_url and _download_valid_img(img_url, out_path):
           return out_path
     except Exception as e:
-      print("Pixabay skip:", clean_q, e)
+      print("Pixabay skip:", short_q, e)
 
-  return build_realistic_sticker(query, urdu_label, out_path)
+  return build_clean_sticker_thumb(query, urdu_label, out_path)
 
 
 def fit_photo(path: str, w: int, h: int) -> Image.Image:
@@ -406,19 +367,19 @@ def fit_photo(path: str, w: int, h: int) -> Image.Image:
 
 
 def make_smooth_background() -> Image.Image:
-  base = Image.new("RGB", (W, H), (18, 138, 102))
+  base = Image.new("RGB", (W, H), (22, 152, 110))
   draw = ImageDraw.Draw(base)
   for y in range(H):
     t = y / H
-    r = int(16 + 18 * t)
-    g = int(152 - 54 * t)
-    b = int(110 - 32 * t)
+    r = int(20 + 14 * t)
+    g = int(162 - 48 * t)
+    b = int(116 - 28 * t)
     draw.line([(0, y), (W, y)], fill=(r, g, b))
 
   glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
   gdraw = ImageDraw.Draw(glow)
-  gdraw.ellipse([80, 130, 1000, 740], fill=(125, 255, 198, 72))
-  glow = glow.filter(ImageFilter.GaussianBlur(68))
+  gdraw.ellipse([90, 140, 990, 740], fill=(135, 255, 205, 70))
+  glow = glow.filter(ImageFilter.GaussianBlur(70))
   return Image.alpha_composite(base.convert("RGBA"), glow).convert("RGB")
 
 
@@ -460,10 +421,11 @@ def render_state_frame(
 
   q_font = get_urdu_font(76)
   opt_font = get_urdu_font(62)
-  ans_font = get_urdu_font(50)
-  badge_font = get_latin_font(48)
-  timer_font = get_latin_font(62)
+  ans_font = get_urdu_font(48)
+  badge_font = get_latin_font(44)
+  timer_font = get_latin_font(60)
 
+  # Top smooth white question card
   draw_smooth_card(
       bg,
       [54, 175, 1026, 595],
@@ -484,6 +446,7 @@ def render_state_frame(
       spacing=22,
   )
 
+  # Timer progress bar during 5-second countdown
   if timer_num is not None and not show_answer:
     bx1, by1, bx2, by2 = 85, 622, 865, 666
     draw_smooth_card(
@@ -504,6 +467,7 @@ def render_state_frame(
         fill=(235, 25, 115),
     )
 
+  # 3 Option cards (A, B, C)
   start_y = 690
   row_h = 200
   gap = 22
@@ -514,9 +478,9 @@ def render_state_frame(
     y2 = y1 + row_h
     is_win = show_answer and (idx == correct_idx)
 
-    fill_col = (212, 255, 226, 255) if is_win else (255, 255, 255, 255)
-    out_col = (14, 155, 68, 255) if is_win else (15, 20, 28, 255)
-    glow_col = (55, 245, 125, 155) if is_win else (255, 245, 180, 75)
+    fill_col = (255, 244, 145, 255) if is_win else (255, 255, 255, 255)
+    out_col = (18, 145, 62, 255) if is_win else (15, 20, 28, 255)
+    glow_col = (255, 225, 70, 165) if is_win else (255, 245, 180, 75)
     b_w = 8 if is_win else 6
 
     draw_smooth_card(
@@ -535,12 +499,12 @@ def render_state_frame(
 
     b_letter = ["A", "B", "C"][idx]
     row_draw.rounded_rectangle(
-        [82, y1 + 14, 132, y1 + 62],
+        [82, y1 + 14, 130, y1 + 60],
         radius=12,
         fill=(18, 135, 62) if is_win else (20, 28, 45),
     )
     row_draw.text(
-        (107, y1 + 38),
+        (106, y1 + 37),
         b_letter,
         fill=(255, 255, 255),
         font=badge_font,
@@ -555,10 +519,11 @@ def render_state_frame(
         anchor="rm",
     )
 
+  # 5-second countdown badge
   if timer_num is not None and not show_answer:
     draw_smooth_card(
         bg,
-        [385, 1345, 565, 1455],
+        [385, 1340, 565, 1445],
         radius=28,
         fill=(18, 24, 36, 255),
         outline=(255, 215, 70, 255),
@@ -567,17 +532,18 @@ def render_state_frame(
     )
     fdraw = ImageDraw.Draw(bg)
     fdraw.text(
-        (475, 1400),
+        (475, 1392),
         str(timer_num),
         fill=(255, 228, 85, 255),
         font=timer_font,
         anchor="mm",
     )
 
+  # Answer banner
   if show_answer and item.get("answer_label"):
     draw_smooth_card(
         bg,
-        [54, 1345, 895, 1455],
+        [54, 1340, 895, 1445],
         radius=28,
         fill=(14, 120, 56, 255),
         outline=(255, 255, 255, 255),
@@ -586,7 +552,7 @@ def render_state_frame(
     )
     fdraw = ImageDraw.Draw(bg)
     fdraw.text(
-        (475, 1400),
+        (475, 1392),
         urdu_text(item["answer_label"]),
         fill=(255, 255, 255, 255),
         font=ans_font,
@@ -648,10 +614,10 @@ def build_dynamic_question_track(
     item: dict, out_wav: str, work_dir: str
 ) -> tuple[str, float, float, float]:
   """
-  No fixed cut-off:
+  No fixed time limit:
   1. Voice speaks full question & options completely.
   2. 5-second countdown with crisp clock-second 'tick' every 1.0s.
-  3. 'teeeeeennnnnnn' tone right after 5s, followed by spoken answer.
+  3. 'teeeeeennnnnnn' tone right after 5s, followed by voice speaking the answer.
   """
   sr = 44100
   base_name = os.path.basename(out_wav)
@@ -697,7 +663,6 @@ def build_dynamic_question_track(
       if pos < total_n:
         t_rel = k / sr
         env = math.exp(-k / (0.016 * sr))
-        # Crisp clock second tick (high transient snap + warm body)
         snap = 0.34 * env * math.sin(2 * math.pi * 1650 * t_rel)
         body = 0.16 * env * math.sin(2 * math.pi * 680 * t_rel)
         samples[pos] += snap + body
