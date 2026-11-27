@@ -1,5 +1,5 @@
 {
-  "run_count": 7,
+  "run_count": 8,
   "seen_questions": [
     "وضو کے فرائض کتنے ہیں؟",
     "غسل کے فرائض کتنے ہیں؟",
@@ -35,7 +35,12 @@
     "حج کے دوران یومِ عرفہ کس تاریخ کو ہوتا ہے؟",
     "علمِ اصولِ فقہ میں 'اجماع' سے کیا مراد ہے؟",
     "قرآن مجید میں کس نبی کا ذکر سب سے زیادہ مرتبہ آیا ہے؟",
-    "فتحِ مکہ کس سن ہجری میں ہوئی؟"
+    "فتحِ مکہ کس سن ہجری میں ہوئی؟",
+    "قرآن مجید کی کس سورہ کی ہر آیت میں لفظ اللہ آیا ہے؟",
+    "صلح حدیبیہ کس ہجری میں واقع ہوئی؟",
+    "اصطلاح حدیث میں متواتر روایت کسے کہتے ہیں؟",
+    "قرآن مجید میں کس صحابی کا نام صراحتا آیا ہے؟",
+    "نزول قرآن کے اعتبار سے سب سے پہلی مکمل سورہ کون سی ہے؟"
   ],
   "history": [
     {
@@ -310,6 +315,51 @@
           "answer_en": "In 8 AH.",
           "spoken_q": "سوال: فتح مکہ کس سن ہجری میں ہویی؟",
           "spoken_a": "جواب: آٹھ ہجری میں۔"
+        }
+      ]
+    },
+    {
+      "run_no": 8,
+      "items": [
+        {
+          "question": "قرآن مجید کی کس سورہ کی ہر آیت میں لفظ اللہ آیا ہے؟",
+          "question_en": "In which Surah of the Quran does the word Allah appear in every verse?",
+          "answer": "سورہ المجادلہ۔",
+          "answer_en": "Surah Al-Mujadila.",
+          "spoken_q": "سوال: قرآن مجید کی کس سورہ کی ہر آیت میں لفظ اللہ آیا ہے؟",
+          "spoken_a": "جواب: سورہ المجادلہ۔"
+        },
+        {
+          "question": "صلح حدیبیہ کس ہجری میں واقع ہوئی؟",
+          "question_en": "In which Hijri year did the Treaty of Hudaybiyyah take place?",
+          "answer": "چھ ہجری میں۔",
+          "answer_en": "In 6 AH.",
+          "spoken_q": "سوال: صلح حدیبیہ کس ہجری میں واقع ہویی؟",
+          "spoken_a": "جواب: چھ ہجری میں۔"
+        },
+        {
+          "question": "اصطلاح حدیث میں متواتر روایت کسے کہتے ہیں؟",
+          "question_en": "In Hadith terminology, what is a Mutawatir narration?",
+          "answer": "جسے ہر دور میں اتنی کثیر جماعت نے روایت کیا ہو کہ جھوٹ پر اتفاق محال ہو۔",
+          "answer_en": "A narration transmitted at every stage by so many narrators that a lie is inconceivable.",
+          "spoken_q": "سوال: اصطلاح حدیث میں متواتر روایت کسے کہتے ہیں؟",
+          "spoken_a": "جواب: جسے ہر دور میں اتنی کثیر جماعت نے بیان کیا ہو کہ جھوٹ پر اتفاق ممکن نہ ہو۔"
+        },
+        {
+          "question": "قرآن مجید میں کس صحابی کا نام صراحتا آیا ہے؟",
+          "question_en": "Which Companion's name is explicitly mentioned in the Quran?",
+          "answer": "حضرت زید بن حارثہ رضی اللہ عنہ۔",
+          "answer_en": "Zayd ibn Harithah (may Allah be pleased with him).",
+          "spoken_q": "سوال: قرآن مجید میں کس صحابی کا نام واضح طور پر آیا ہے؟",
+          "spoken_a": "جواب: حضرت زید بن حارثہ رضی اللہ عنہ۔"
+        },
+        {
+          "question": "نزول قرآن کے اعتبار سے سب سے پہلی مکمل سورہ کون سی ہے؟",
+          "question_en": "Which Surah was revealed complete first in chronological order?",
+          "answer": "سورہ الفاتحہ۔",
+          "answer_en": "Surah Al-Fatihah.",
+          "spoken_q": "سوال: نزول قرآن کے اعتبار سے سب سے پہلی مکمل سورہ کون سی ہے؟",
+          "spoken_a": "جواب: سورہ الفاتحہ۔"
         }
       ]
     }
