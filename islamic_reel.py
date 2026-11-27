@@ -12,6 +12,12 @@ import requests
 
 try:
   import arabic_reshaper
+
+  HAS_RESHAPER = True
+except ImportError:
+  HAS_RESHAPER = False
+
+try:
   from bidi.algorithm import get_display
 
   HAS_BIDI = True
@@ -33,44 +39,44 @@ HISTORY_FILE = "islamic_history.json"
 
 FALLBACK_QUIZ = [
     {
-        "question": "اللہ اپنے بندے سے\nکب سب سے زیادہ\nخوش ہوتا ہے؟",
+        "question": "زندگی کی آخری ساعتوں میں\nانسان کو کیا یاد آتا ہے؟",
         "options": [
-            ("A)", "person sleeping peaceful bedroom night", "جب وہ سوتا ہے"),
-            ("B)", "football match green stadium grass", "جب وہ کھیلتا ہے"),
-            ("C)", "open quran book mosque light", "جب وہ توبہ کرتا ہے"),
+            ("A)", "money bag cash dollars", "دولت"),
+            ("B)", "happy family parents children", "رشتے"),
+            ("C)", "mistake regret checkmark cross", "غلطیاں"),
+        ],
+        "correct_index": 2,
+        "answer_label": "درست جواب: غلطیاں",
+        "question_speech": (
+            "زندگی کی آخری ساعتوں میں انسان کو کیا یاد آتا ہے؟ "
+            "دولت، رشتے، یا غلطیاں؟"
+        ),
+        "answer_speech": "درست جواب ہے: غلطیاں۔",
+    },
+    {
+        "question": "اللہ اپنے بندے سے\nکب سب سے زیادہ خوش ہوتا ہے؟",
+        "options": [
+            ("A)", "sleeping person bed night", "جب وہ سوتا ہے"),
+            ("B)", "football soccer green field", "جب وہ کھیلتا ہے"),
+            ("C)", "open quran prayer mosque", "جب وہ توبہ کرتا ہے"),
         ],
         "correct_index": 2,
         "answer_label": "درست جواب: جب وہ توبہ کرتا ہے",
         "question_speech": (
             "اللہ اپنے بندے سے کب سب سے زیادہ خوش ہوتا ہے؟ "
-            "سوتا ہے، کھیلتا ہے، یا توبہ کرتا ہے؟"
+            "جب وہ سوتا ہے، کھیلتا ہے، یا توبہ کرتا ہے؟"
         ),
         "answer_speech": "درست جواب ہے: جب وہ توبہ کرتا ہے۔",
-    },
-    {
-        "question": "اسلام کی سب سے پہلی\nمسجد کون سی ہے؟",
-        "options": [
-            ("A)", "quba mosque white architecture", "مسجدِ قبا"),
-            ("B)", "prophet mosque green dome medina", "مسجدِ نبوی"),
-            ("C)", "al aqsa mosque dome jerusalem", "مسجدِ اقصیٰ"),
-        ],
-        "correct_index": 0,
-        "answer_label": "درست جواب: مسجدِ قبا",
-        "question_speech": (
-            "اسلام کی سب سے پہلی مسجد کون سی ہے؟ "
-            "مسجدِ قبا، مسجدِ نبوی، یا مسجدِ اقصیٰ؟"
-        ),
-        "answer_speech": "درست جواب ہے: مسجدِ قبا۔",
     },
 ]
 
 
-def discover_bold_urdu_font() -> str | None:
+def discover_urdu_font() -> str | None:
   candidates = [
-      "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
       "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
-      "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
+      "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
       "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+      "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
   ]
   for p in candidates:
     if os.path.exists(p):
@@ -94,7 +100,7 @@ def discover_bold_urdu_font() -> str | None:
   return None
 
 
-URDU_FONT_FILE = discover_bold_urdu_font()
+URDU_FONT_FILE = discover_urdu_font()
 
 
 def get_urdu_font(size: int) -> ImageFont.FreeTypeFont:
@@ -114,20 +120,27 @@ def get_latin_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def urdu_text(text: str) -> str:
+  """
+    Shapes Urdu words cleanly so characters join naturally and stay readable.
+    """
   if not text:
     return ""
   lines = []
-  for raw in text.split("\n"):
-    s = raw.strip()
-    if not s:
+  for raw_line in text.split("\n"):
+    line = raw_line.strip()
+    if not line:
       lines.append("")
       continue
-    if HAS_BIDI:
-      reshaped = arabic_reshaper.reshape(s)
-      bidi_str = get_display(reshaped)
-      lines.append(bidi_str[::-1])
+    if HAS_RESHAPER:
+      shaped = arabic_reshaper.reshape(line)
+      if HAS_BIDI:
+        # Reverse word order so RTL reading flows right-to-left cleanly
+        words = shaped.split(" ")
+        lines.append(" ".join(words[::-1]))
+      else:
+        lines.append(shaped)
     else:
-      lines.append(s[::-1])
+      lines.append(line)
   return "\n".join(lines)
 
 
@@ -162,12 +175,12 @@ def generate_gemini_quiz() -> list[dict]:
   avoid_text = "\n".join(f"- {q}" for q in used_questions)
 
   prompt = f"""
-Generate 2 short, clear, easy-to-understand Islamic quiz questions in Urdu for a 30-second YouTube Short (15 seconds per question).
+Generate 2 short, engaging, easy-to-understand Islamic quiz questions in Urdu for a 30-second YouTube Short (15 seconds per question).
 Rules:
-- Keep Urdu words simple, natural, and easy to read (max 2 short lines per question, 2-4 simple Urdu words per option).
-- Each option (A, B, C) must include a clear English real-photo search description (3-4 words).
-- Include correct_index (0, 1, or 2), answer_label in simple Urdu, question_speech (~4.5s), and answer_speech (~2s).
-- Avoid repeating these questions:
+- Use clear, everyday Urdu words (max 2 short lines per question, 1-4 Urdu words per option).
+- Each option (A, B, C) must have a simple English photo search keyword phrase for Pixabay (2-4 clear words matching the exact option).
+- Include correct_index (0, 1, or 2), answer_label in simple Urdu, question_speech (spoken clearly in ~5-6 seconds), and answer_speech (spoken clearly in ~2 seconds).
+- Avoid repeating these previous questions:
 {avoid_text}
 
 Return ONLY valid JSON list of 2 items:
@@ -175,13 +188,13 @@ Return ONLY valid JSON list of 2 items:
   {{
     "question": "آسان اردو سوال سطر 1\\nسطر 2",
     "options": [
-      ["A)", "real photo query 1", "آسان آپشن 1"],
-      ["B)", "real photo query 2", "آسان آپشن 2"],
-      ["C)", "real photo query 3", "آسان آپشن 3"]
+      ["A)", "pixabay keyword 1", "آسان آپشن 1"],
+      ["B)", "pixabay keyword 2", "آسان آپشن 2"],
+      ["C)", "pixabay keyword 3", "آسان آپشن 3"]
     ],
     "correct_index": 1,
     "answer_label": "درست جواب: آسان آپشن 2",
-    "question_speech": "آسان اردو سوال؟",
+    "question_speech": "مکمل اردو سوال اور آپشنز؟",
     "answer_speech": "درست جواب ہے: آسان آپشن 2۔"
   }}
 ]
@@ -225,7 +238,7 @@ Return ONLY valid JSON list of 2 items:
   return FALLBACK_QUIZ
 
 
-def _try_download_image(url: str, out_path: str, timeout: int = 18) -> bool:
+def _download_valid_img(url: str, out_path: str, timeout: int = 20) -> bool:
   headers = {
       "User-Agent": (
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -234,7 +247,7 @@ def _try_download_image(url: str, out_path: str, timeout: int = 18) -> bool:
   }
   r = requests.get(url, headers=headers, timeout=timeout)
   r.raise_for_status()
-  if len(r.content) < 1500:
+  if len(r.content) < 1200:
     return False
   with open(out_path, "wb") as f:
     f.write(r.content)
@@ -243,68 +256,46 @@ def _try_download_image(url: str, out_path: str, timeout: int = 18) -> bool:
   return True
 
 
-def fetch_real_photo(prompt: str, out_path: str) -> str:
+def fetch_option_photo(query: str, out_path: str) -> str:
+  """
+    Fetches a real photo from Pixabay first (using PIXABAY_API_KEY),
+    then Pollinations as backup.
+    """
   api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
-  if api_key and prompt:
+  clean_q = " ".join((query or "").split()[:4])
+
+  if api_key and clean_q:
     try:
-      q = quote(" ".join(prompt.split()[:4]))
-      url = f"[https://pixabay.com/api/?key=](https://pixabay.com/api/?key=){api_key}&q={q}&image_type=photo&safesearch=true&per_page=3"
+      url = (
+          f"[https://pixabay.com/api/?key=](https://pixabay.com/api/?key=){api_key}"
+          f"&q={quote(clean_q)}&image_type=photo&safesearch=true&per_page=5"
+      )
       r = requests.get(url, timeout=15)
       r.raise_for_status()
       hits = r.json().get("hits", [])
       for hit in hits:
         img_url = hit.get("webformatURL") or hit.get("largeImageURL")
-        if img_url and _try_download_image(img_url, out_path):
+        if img_url and _download_valid_img(img_url, out_path):
+          print("Pixabay photo OK:", clean_q)
           return out_path
     except Exception as e:
-      print("Pixabay fetch skipped:", e)
+      print("Pixabay error for", clean_q, ":", e)
 
-  # Try Pollinations real photo endpoint
-  if prompt:
+  if clean_q:
     try:
-      photo_prompt = quote(
-          f"real photograph of {prompt}, DSLR photo, natural lighting, detailed, no text"
+      p_prompt = quote(
+          f"real photo of {clean_q}, clean lighting, high detail, no text"
       )
       seed = random.randint(1000, 999999)
-      p_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){photo_prompt}?width=480&height=360&seed={seed}&nologo=true"
-      if _try_download_image(p_url, out_path, timeout=25):
+      p_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){p_prompt}?width=420&height=300&seed={seed}&nologo=true"
+      if _download_valid_img(p_url, out_path, timeout=22):
+        print("Pollinations photo OK:", clean_q)
         return out_path
     except Exception as e:
-      print("Pollinations fetch skipped:", e)
+      print("Pollinations error for", clean_q, ":", e)
 
-  # Try Wikimedia Commons search for real photos matching keywords
-  if prompt:
-    try:
-      q_wiki = quote(" ".join(prompt.split()[:3]))
-      w_url = (
-          "[https://commons.wikimedia.org/w/api.php?action=query&generator=search](https://commons.wikimedia.org/w/api.php?action=query&generator=search)"
-          f"&gsrnamespace=6&gsrsearch={q_wiki}&gsrlimit=3&prop=imageinfo&iiprop=url&format=json"
-      )
-      wr = requests.get(w_url, headers={"User-Agent": "IslamicQuizBot/1.0"}, timeout=15)
-      wr.raise_for_status()
-      pages = wr.json().get("query", {}).get("pages", {})
-      for page in pages.values():
-        infos = page.get("imageinfo", [])
-        if infos:
-          u = infos[0].get("url", "")
-          if u.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-            if _try_download_image(u, out_path, timeout=20):
-              return out_path
-    except Exception as e:
-      print("Wikimedia fetch skipped:", e)
-
-  # Rich glowing fallback card if offline/blocked
-  w, h = 360, 260
-  im = Image.new("RGB", (w, h), (35, 55, 85))
-  dr = ImageDraw.Draw(im)
-  for y in range(h):
-    t = y / h
-    dr.line([(0, y), (w, y)], fill=(int(38 + 45 * t), int(62 + 55 * t), int(95 + 40 * t)))
-  glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-  gd = ImageDraw.Draw(glow)
-  gd.ellipse([60, 30, w - 60, h - 30], fill=(255, 200, 80, 95))
-  glow = glow.filter(ImageFilter.GaussianBlur(28))
-  im = Image.alpha_composite(im.convert("RGBA"), glow).convert("RGB")
+  # Clean soft card if external fetch is unavailable
+  im = Image.new("RGB", (360, 240), (242, 245, 250))
   im.save(out_path)
   return out_path
 
@@ -320,21 +311,21 @@ def fit_photo(path: str, w: int, h: int) -> Image.Image:
 
 
 def make_glowing_background() -> Image.Image:
-  """Vibrant warm golden-amber gradient with soft glowing aura."""
-  base = Image.new("RGB", (W, H), (228, 162, 52))
+  """Rich emerald/gold glowing studio background."""
+  base = Image.new("RGB", (W, H), (24, 148, 108))
   draw = ImageDraw.Draw(base)
   for y in range(H):
     t = y / H
-    r = int(246 - 48 * t)
-    g = int(186 - 62 * t)
-    b = int(72 - 28 * t)
+    r = int(20 + 18 * t)
+    g = int(162 - 55 * t)
+    b = int(118 - 32 * t)
     draw.line([(0, y), (W, y)], fill=(r, g, b))
 
   glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
   gdraw = ImageDraw.Draw(glow)
-  gdraw.ellipse([70, 140, 1010, 780], fill=(255, 236, 150, 115))
-  gdraw.ellipse([110, 820, 930, 1560], fill=(255, 215, 110, 80))
-  glow = glow.filter(ImageFilter.GaussianBlur(75))
+  gdraw.ellipse([80, 140, 1000, 760], fill=(120, 255, 195, 75))
+  gdraw.ellipse([120, 820, 920, 1520], fill=(255, 225, 120, 55))
+  glow = glow.filter(ImageFilter.GaussianBlur(70))
   return Image.alpha_composite(base.convert("RGBA"), glow).convert("RGB")
 
 
@@ -347,28 +338,26 @@ def draw_glow_card(
     glow_color: tuple[int, int, int, int],
     width: int = 6,
 ):
-  # Soft outer glow
   glow = Image.new("RGBA", canvas_rgba.size, (0, 0, 0, 0))
   gdraw = ImageDraw.Draw(glow)
-  gx1, gy1, gx2, gy2 = box[0] - 10, box[1] - 10, box[2] + 10, box[3] + 10
   gdraw.rounded_rectangle(
-      [gx1, gy1, gx2, gy2], radius=radius + 8, fill=glow_color
+      [box[0] - 10, box[1] - 10, box[2] + 10, box[3] + 10],
+      radius=radius + 8,
+      fill=glow_color,
   )
-  glow = glow.filter(ImageFilter.GaussianBlur(18))
+  glow = glow.filter(ImageFilter.GaussianBlur(16))
   canvas_rgba.alpha_composite(glow)
 
-  # Subtle drop shadow
   shadow = Image.new("RGBA", canvas_rgba.size, (0, 0, 0, 0))
   sdraw = ImageDraw.Draw(shadow)
   sdraw.rounded_rectangle(
       [box[0] + 5, box[1] + 9, box[2] + 5, box[3] + 9],
       radius=radius,
-      fill=(0, 0, 0, 65),
+      fill=(0, 0, 0, 75),
   )
   shadow = shadow.filter(ImageFilter.GaussianBlur(8))
   canvas_rgba.alpha_composite(shadow)
 
-  # Main crisp card
   layer = Image.new("RGBA", canvas_rgba.size, (0, 0, 0, 0))
   ldraw = ImageDraw.Draw(layer)
   ldraw.rounded_rectangle(
@@ -386,47 +375,67 @@ def render_state_frame(
 ) -> str:
   bg = make_glowing_background().convert("RGBA")
 
-  q_font = get_urdu_font(74)
-  opt_font = get_urdu_font(58)
-  ans_font = get_urdu_font(50)
-  badge_font = get_latin_font(54)
-  timer_font = get_latin_font(72)
+  q_font = get_urdu_font(78)
+  opt_font = get_urdu_font(64)
+  ans_font = get_urdu_font(54)
+  badge_font = get_latin_font(50)
+  timer_font = get_latin_font(68)
 
-  # Top glowing white question card
+  # Top white question box with crisp dark border and soft glow
   draw_glow_card(
       bg,
-      [54, 195, 1026, 655],
-      radius=44,
-      fill=(255, 253, 246, 255),
-      outline=(25, 35, 55, 255),
-      glow_color=(255, 240, 165, 120),
+      [54, 190, 1026, 630],
+      radius=40,
+      fill=(255, 255, 255, 255),
+      outline=(15, 20, 28, 255),
+      glow_color=(150, 255, 205, 110),
       width=6,
   )
   tdraw = ImageDraw.Draw(bg)
-  q_shaped = urdu_text(item["question"])
-  # Slight double-stroke for extra bold readability
+  q_str = urdu_text(item["question"])
   for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
     tdraw.multiline_text(
-        (540 + dx, 425 + dy),
-        q_shaped,
-        fill=(12, 16, 24, 255),
+        (540 + dx, 410 + dy),
+        q_str,
+        fill=(10, 12, 16, 255),
         font=q_font,
         anchor="mm",
         align="center",
         spacing=22,
     )
   tdraw.multiline_text(
-      (540, 425),
-      q_shaped,
-      fill=(10, 14, 22, 255),
+      (540, 410),
+      q_str,
+      fill=(10, 12, 16, 255),
       font=q_font,
       anchor="mm",
       align="center",
       spacing=22,
   )
 
-  # 3 glowing option cards (A, B, C)
-  start_y = 700
+  # Timer bar between question box and option cards
+  if timer_num is not None and not show_answer:
+    bar_x1, bar_y1, bar_x2, bar_y2 = 90, 660, 865, 708
+    draw_glow_card(
+        bg,
+        [bar_x1, bar_y1, bar_x2, bar_y2],
+        radius=20,
+        fill=(220, 232, 245, 255),
+        outline=(20, 25, 35, 255),
+        glow_color=(255, 220, 90, 110),
+        width=4,
+    )
+    frac = max(0.05, min(1.0, timer_num / 5.0))
+    fill_w = int((bar_x2 - bar_x1 - 12) * frac)
+    bdraw = ImageDraw.Draw(bg)
+    bdraw.rounded_rectangle(
+        [bar_x1 + 6, bar_y1 + 6, bar_x1 + 6 + fill_w, bar_y2 - 6],
+        radius=14,
+        fill=(235, 25, 115),
+    )
+
+  # 3 Option cards (A, B, C) with photo + bold Urdu text
+  start_y = 735
   row_h = 215
   gap = 26
   correct_idx = item.get("correct_index", 0)
@@ -436,9 +445,9 @@ def render_state_frame(
     y2 = y1 + row_h
     is_win = show_answer and (idx == correct_idx)
 
-    fill_col = (212, 255, 226, 255) if is_win else (255, 254, 250, 255)
-    out_col = (12, 155, 68, 255) if is_win else (28, 72, 195, 255)
-    glow_col = (45, 235, 115, 155) if is_win else (255, 235, 155, 95)
+    fill_col = (212, 255, 226, 255) if is_win else (255, 255, 255, 255)
+    out_col = (14, 155, 68, 255) if is_win else (15, 20, 28, 255)
+    glow_col = (55, 245, 125, 165) if is_win else (255, 245, 180, 85)
     b_w = 8 if is_win else 6
 
     draw_glow_card(
@@ -452,96 +461,92 @@ def render_state_frame(
     )
 
     row_draw = ImageDraw.Draw(bg)
-    badge_letter = f"{['A', 'B', 'C'][idx]})"
-    b_fill = (16, 140, 62) if is_win else (242, 246, 255)
-    b_fg = (255, 255, 255) if is_win else (15, 20, 35)
-
+    photo = fit_photo(thumb_paths[idx], 235, row_h - 32)
     row_draw.rounded_rectangle(
-        [72, y1 + 20, 192, y2 - 20],
-        radius=22,
-        fill=b_fill,
-        outline=(20, 25, 40),
-        width=4,
+        [82, y1 + 14, 321, y2 - 14],
+        radius=20,
+        fill=(255, 255, 255),
+        outline=(25, 30, 40),
+        width=3,
+    )
+    bg.paste(photo, (84, y1 + 16))
+
+    # Small corner badge A/B/C
+    b_letter = ["A", "B", "C"][idx]
+    row_draw.rounded_rectangle(
+        [82, y1 + 14, 134, y1 + 64],
+        radius=12,
+        fill=(18, 135, 62) if is_win else (20, 28, 45),
     )
     row_draw.text(
-        (132, y1 + row_h // 2),
-        badge_letter,
-        fill=b_fg,
+        (108, y1 + 39),
+        b_letter,
+        fill=(255, 255, 255),
         font=badge_font,
         anchor="mm",
     )
 
-    photo = fit_photo(thumb_paths[idx], 230, row_h - 34)
-    row_draw.rounded_rectangle(
-        [204, y1 + 15, 438, y2 - 15],
-        radius=20,
-        fill=(255, 255, 255),
-        outline=(30, 40, 60),
-        width=3,
-    )
-    bg.paste(photo, (206, y1 + 17))
-
-    opt_shaped = urdu_text(label)
+    opt_str = urdu_text(label)
     for dx, dy in [(-1, 0), (1, 0)]:
       row_draw.text(
-          (868 + dx, y1 + row_h // 2 + dy),
-          opt_shaped,
-          fill=(12, 16, 24, 255),
+          (865 + dx, y1 + row_h // 2 + dy),
+          opt_str,
+          fill=(10, 12, 16, 255),
           font=opt_font,
           anchor="rm",
       )
     row_draw.text(
-        (868, y1 + row_h // 2),
-        opt_shaped,
-        fill=(10, 14, 22, 255),
+        (865, y1 + row_h // 2),
+        opt_str,
+        fill=(10, 12, 16, 255),
         font=opt_font,
         anchor="rm",
     )
 
-  # 5-second glowing countdown badge
+  # Countdown number badge during 5-second timer
   if timer_num is not None and not show_answer:
     draw_glow_card(
         bg,
-        [385, 1445, 565, 1575],
-        radius=36,
-        fill=(20, 24, 38, 255),
-        outline=(255, 215, 65, 255),
-        glow_color=(255, 210, 55, 165),
-        width=6,
+        [385, 1455, 565, 1580],
+        radius=34,
+        fill=(18, 24, 36, 255),
+        outline=(255, 215, 70, 255),
+        glow_color=(255, 215, 70, 150),
+        width=5,
     )
     fdraw = ImageDraw.Draw(bg)
     fdraw.text(
-        (475, 1510),
+        (475, 1517),
         str(timer_num),
-        fill=(255, 228, 80, 255),
+        fill=(255, 228, 85, 255),
         font=timer_font,
         anchor="mm",
     )
 
-  # Answer banner positioned cleanly above Shorts bottom metadata
+  # Spoken answer banner after 'teeeeeennnnnnn'
   if show_answer and item.get("answer_label"):
     draw_glow_card(
         bg,
-        [54, 1445, 895, 1575],
-        radius=32,
-        fill=(12, 118, 56, 255),
-        outline=(255, 250, 210, 255),
-        glow_color=(50, 235, 120, 165),
+        [54, 1455, 895, 1580],
+        radius=30,
+        fill=(14, 120, 56, 255),
+        outline=(255, 255, 255, 255),
+        glow_color=(55, 245, 125, 165),
         width=6,
     )
     fdraw = ImageDraw.Draw(bg)
-    ans_shaped = urdu_text(item["answer_label"])
+    ans_str = urdu_text(item["answer_label"])
     for dx, dy in [(-1, 0), (1, 0)]:
       fdraw.text(
-          (475 + dx, 1510 + dy),
-          ans_shaped,
+          (475 + dx, 1517 + dy),
+          ans_str,
           fill=(255, 255, 255, 255),
           font=ans_font,
           anchor="mm",
       )
     fdraw.text(
-        (475, 1510),
-        ans_shaped,
+        (475, 1517),
+        ans_str,
         fill=(255, 255, 255, 255),
         font=ans_font,
         anchor="mm",
@@ -551,7 +556,7 @@ def render_state_frame(
   return out_png
 
 
-async def _tts_speak(text: str, out_mp3: str, rate: str = "+4%"):
+async def _tts_speak(text: str, out_mp3: str, rate: str = "+2%"):
   for voice in ["ur-PK-AsadNeural", "ur-PK-UzmaNeural"]:
     try:
       comm = edge_tts.Communicate(text, voice=voice, rate=rate, pitch="+0Hz")
@@ -612,10 +617,10 @@ def _mix_mp3_into_samples(
 def build_question_audio_15s(item: dict, out_wav: str, work_dir: str) -> str:
   """
   15s per question:
-  - 0.0s  .. 5.5s  : Question & options voice-over
-  - 5.5s  .. 10.5s : Soft warm wooden 'tok-tok-tok' clock tick during 5s timer
-  - 10.5s .. 11.3s : Final 'too' (teeeeeennnnnnn) tone
-  - 11.4s .. 15.0s : Voice-over speaks the answer clearly
+  - 0.0s  .. 6.2s  : Full question & options spoken by TTS voice first
+  - 6.2s  .. 11.2s : 5-second soft melodic chime pulse (replaces harsh tick-tick)
+  - 11.2s .. 12.0s : 5th-second end 'teeeeeennnnnnn' tone
+  - 12.1s .. 15.0s : Voice-over speaks the answer clearly
   """
   sr = 44100
   total_samples = int(PER_QUESTION_SEC * sr)
@@ -625,31 +630,31 @@ def build_question_audio_15s(item: dict, out_wav: str, work_dir: str) -> str:
   a_speech = item.get("answer_speech", item.get("answer_label", ""))
   base_name = os.path.basename(out_wav)
 
+  # 1. Speak full question & options first (0.0s .. 6.1s)
   if HAS_TTS and q_speech.strip():
     q_mp3 = os.path.join(work_dir, f"{base_name}_q.mp3")
-    asyncio.run(_tts_speak(q_speech, q_mp3, rate="+6%"))
+    asyncio.run(_tts_speak(q_speech, q_mp3, rate="+4%"))
     _mix_mp3_into_samples(
-        q_mp3, samples, 0.0, 5.4, sr, work_dir, f"{base_name}_q"
+        q_mp3, samples, 0.0, 6.1, sr, work_dir, f"{base_name}_q"
     )
 
-  # Soft warm clock tick ('tok-tok') every 0.25s from 5.5s to 10.5s
-  tick_t = 5.5
-  while tick_t < 10.5:
-    start_i = int(tick_t * sr)
-    tick_len = int(0.045 * sr)
-    for k in range(tick_len):
+  # 2. Soft melodic pulse every 0.5s across the 5-second timer (6.2s .. 11.2s)
+  notes = [523.25, 587.33, 659.25, 587.33]  # C5, D5, E5, D5 soft chime
+  for step in range(10):
+    t_start = 6.2 + step * 0.5
+    start_i = int(t_start * sr)
+    dur_len = int(0.14 * sr)
+    freq = notes[step % len(notes)]
+    for k in range(dur_len):
       idx = start_i + k
       if idx < total_samples:
         t_rel = k / sr
-        env = math.exp(-k / (0.012 * sr))
-        # Warm woody low-mid thud + gentle click
-        wood = 0.26 * env * math.sin(2 * math.pi * 420 * t_rel)
-        click = 0.12 * env * math.sin(2 * math.pi * 840 * t_rel)
-        samples[idx] += wood + click
-    tick_t += 0.25
+        env = (1.0 - k / dur_len) ** 1.6
+        val = 0.20 * env * math.sin(2 * math.pi * freq * t_rel)
+        samples[idx] += val
 
-  # Final 'too' (teeeeeennnnnnn) from 10.5s to 11.3s
-  b_start = int(10.5 * sr)
+  # 3. 5th-second end 'teeeeeennnnnnn' tone (11.2s .. 12.0s)
+  b_start = int(11.2 * sr)
   b_len = int(0.8 * sr)
   for k in range(b_len):
     idx = b_start + k
@@ -657,17 +662,17 @@ def build_question_audio_15s(item: dict, out_wav: str, work_dir: str) -> str:
       t_rel = k / sr
       fade_in = min(1.0, k / (0.015 * sr))
       fade_out = min(1.0, (b_len - k) / (0.06 * sr))
-      tone = 0.30 * math.sin(2 * math.pi * 620 * t_rel) + 0.12 * math.sin(
-          2 * math.pi * 1240 * t_rel
+      tone = 0.30 * math.sin(2 * math.pi * 660 * t_rel) + 0.12 * math.sin(
+          2 * math.pi * 1320 * t_rel
       )
       samples[idx] += tone * fade_in * fade_out
 
-  # Spoken answer right after 'too' (11.4s to 15.0s)
+  # 4. Spoken answer right after 'teeeeeennnnnnn' (12.1s .. 15.0s)
   if HAS_TTS and a_speech.strip():
     a_mp3 = os.path.join(work_dir, f"{base_name}_a.mp3")
-    asyncio.run(_tts_speak(a_speech, a_mp3, rate="+4%"))
+    asyncio.run(_tts_speak(a_speech, a_mp3, rate="+2%"))
     _mix_mp3_into_samples(
-        a_mp3, samples, 11.4, 3.5, sr, work_dir, f"{base_name}_a"
+        a_mp3, samples, 12.1, 2.8, sr, work_dir, f"{base_name}_a"
     )
 
   with wave.open(out_wav, "wb") as out_wf:
@@ -698,16 +703,20 @@ def main():
     thumb_paths = []
     for o_idx, (_, photo_query, _) in enumerate(item["options"][:3]):
       p_file = os.path.join(work_dir, f"q{q_idx+1}_opt{o_idx+1}.jpg")
-      thumb_paths.append(fetch_real_photo(photo_query, p_file))
+      thumb_paths.append(fetch_option_photo(photo_query, p_file))
 
+    # 15.0s per question:
+    # 0.0..6.2s   (6.2s) : Question & options + voice speaks full question
+    # 6.2..11.2s  (5.0s) : 5-second countdown (5..1) with soft melodic pulse
+    # 11.2..15.0s (3.8s) : 'teeeeeennnnnnn' + answer highlight + spoken answer
     slots = [
-        ("q_intro", 5.5, None, False),
+        ("q_intro", 6.2, None, False),
         ("t_5", 1.0, 5, False),
         ("t_4", 1.0, 4, False),
         ("t_3", 1.0, 3, False),
         ("t_2", 1.0, 2, False),
         ("t_1", 1.0, 1, False),
-        ("t_ans", 4.5, None, True),
+        ("t_ans", 3.8, None, True),
     ]
 
     for tag, dur, t_num, is_ans in slots:
