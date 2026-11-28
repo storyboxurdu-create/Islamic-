@@ -24,13 +24,20 @@ jobs:
           fc-cache -f -v > /dev/null
           fc-list :lang=ur file
           pip install --upgrade pip
-          pip install pillow arabic-reshaper python-bidi edge-tts requests google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          pip install pillow arabic-reshaper python-bidi edge-tts requests google-api-python-client google-auth-httplib2
 
       - name: Generate Islamic quiz reel
         env:
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python islamic_reel.py
+
+      - name: Upload video artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: islamic-short-video
+          path: final_islamic_short.mp4
 
       - name: Upload to YouTube
         env:
