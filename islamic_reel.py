@@ -364,4 +364,335 @@ def render_base_card_png(
     item: dict,
     thumb_paths: list[str],
     out_png: str,
-    timer_num: int |
+    timer_num: int | None = None,
+    show_answer: bool = False,
+) -> str:
+  bg = make_smooth_background().convert("RGBA")
+  badge_font = get_latin_font(44)
+  timer_font = get_latin_font(60)
+
+  draw_smooth_card(
+      bg,
+      [54, 175, 1026, 595],
+      radius=38,
+      fill=(255, 255, 255, 255),
+      outline=(15, 20, 28, 255),
+      glow_color=(135, 255, 200, 95),
+      width=6,
+  )
+
+  if timer_num is not None and not show_answer:
+    bx1, by1, bx2, by2 = 85, 622, 865, 666
+    draw_smooth_card(
+        bg,
+        [bx1, by1, bx2, by2],
+        radius=18,
+        fill=(225, 234, 244, 255),
+        outline=(20, 25, 35, 255),
+        glow_color=(255, 220, 90, 90),
+        width=4,
+    )
+    frac = max(0.05, min(1.0, timer_num / 5.0))
+    fw = int((bx2 - bx1 - 12) * frac)
+    bdraw = ImageDraw.Draw(bg)
+    bdraw.rounded_rectangle(
+        [bx1 + 6, by1 + 6, bx1 + 6 + fw, by2 - 6],
+        radius=12,
+        fill=(235, 25, 115),
+    )
+
+  start_y = 690
+  row_h = 200
+  gap = 22
+  correct_idx = item.get("correct_index", 0)
+
+  for idx in range(3):
+    y1 = start_y + idx * (row_h + gap)
+    y2 = y1 + row_h
+    is_win = show_answer and (idx == correct_idx)
+
+    fill_col = (255, 244, 145, 255) if is_win else (255, 255, 255, 255)
+    out_col = (18, 145, 62, 255) if is_win else (15, 20, 28, 255)
+    glow_col = (255, 225, 70, 165) if is_win else (255, 245, 180, 75)
+    b_w = 8 if is_win else 6
+
+    draw_smooth_card(
+        bg,
+        [54, y1, 895, y2],
+        radius=32,
+        fill=fill_col,
+        outline=out_col,
+        glow_color=glow_col,
+        width=b_w,
+    )
+
+    row_draw = ImageDraw.Draw(bg)
+    photo = fit_photo(thumb_paths[idx], 230, row_h - 28)
+    bg.paste(photo, (82, y1 + 14))
+
+    b_letter = ["A", "B", "C"][idx]
+    row_draw.rounded_rectangle(
+        [82, y1 + 14, 130, y1 + 60],
+        radius=12,
+        fill=(18, 135, 62) if is_win else (20, 28, 45),
+    )
+    row_draw.text(
+        (106, y1 + 37),
+        b_letter,
+        fill=(255, 255, 255),
+        font=badge_font,
+        anchor="mm",
+    )
+
+  if timer_num is not None and not show_answer:
+    draw_smooth_card(
+        bg,
+        [385, 1340, 565, 1445],
+        radius=28,
+        fill=(18, 24, 36, 255),
+        outline=(255, 215, 70, 255),
+        glow_color=(255, 215, 70, 140),
+        width=5,
+    )
+    fdraw = ImageDraw.Draw(bg)
+    fdraw.text(
+        (475, 1392),
+        str(timer_num),
+        fill=(255, 228, 85, 255),
+        font=timer_font,
+        anchor="mm",
+    )
+
+  if show_answer and item.get("answer_label"):
+    draw_smooth_card(
+        bg,
+        [54, 1340, 895, 1445],
+        radius=28,
+        fill=(14, 120, 56, 255),
+        outline=(255, 255, 255, 255),
+        glow_color=(55, 245, 125, 155),
+        width=6,
+    )
+
+  bg.convert("RGB").save(out_png)
+  return out_png
+
+
+def render_slot_clip_with_ffmpeg(
+    base_png: str,
+    item: dict,
+    dur: float,
+    out_mp4: str,
+    show_answer: bool = False,
+):
+  filters = [f"scale={W}:{H},fps=30,format=yuv420p"]
+  font_arg = escape_drawtext(URDU_FONT_FILE)
+
+  q_lines = [ln.strip() for ln in item["question"].split("\n") if ln.strip()]
+  if len(q_lines) == 1:
+    q_positions = [(q_lines[0], 385)]
+  else:
+    q_positions = [(q_lines[0], 335), (q_lines[1], 435)]
+
+  for q_line, y_pos in q_positions:
+    filters.append(
+        f"drawtext=fontfile='{font_arg}':text='{escape_drawtext(q_line)}':"
+        f"fontcolor=#0A0C10:fontsize=72:x=(w-text_w)/2:y={y_pos}-text_h/2"
+    )
+
+  start_y = 690
+  row_h = 200
+  gap = 22
+  for idx, (_, _, label) in enumerate(item["options"][:3]):
+    y_center = start_y + idx * (row_h + gap) + row_h // 2
+    filters.append(
+        f"drawtext=fontfile='{font_arg}':text='{escape_drawtext(label.strip())}':"
+        f"fontcolor=#0A0C10:fontsize=58:x=865-text_w:y={y_center}-text_h/2"
+    )
+
+  if show_answer and item.get("answer_label"):
+    filters.append(
+        f"drawtext=fontfile='{font_arg}':text='{escape_drawtext(item['answer_label'].strip())}':"
+        f"fontcolor=#FFFFFF:fontsize=46:x=(w-text_w)/2:y=1392-text_h/2"
+    )
+
+  vf_expr = ",".join(filters)
+  subprocess.run(
+      [
+          "ffmpeg",
+          "-y",
+          "-loop",
+          "1",
+          "-i",
+          base_png,
+          "-t",
+          f"{dur:.3f}",
+          "-vf",
+          vf_expr,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "fast",
+          "-crf",
+          "22",
+          out_mp4,
+      ],
+      check=True,
+      stdout=subprocess.DEVNULL,
+      stderr=subprocess.DEVNULL,
+  )
+
+
+async def _tts_save(text: str, out_mp3: str, rate: str = "+0%", pitch: str = "-2Hz"):
+  for voice in ["ur-PK-AsadNeural", "ur-PK-UzmaNeural"]:
+    try:
+      comm = edge_tts.Communicate(text, voice=voice, rate=rate, pitch=pitch)
+      await comm.save(out_mp3)
+      if os.path.exists(out_mp3) and os.path.getsize(out_mp3) > 400:
+        return
+    except Exception as e:
+      print("TTS retry:", voice, e)
+
+
+def _mp3_to_mono_samples(
+    mp3_path: str, sr: int, work_dir: str, tag: str
+) -> list[float]:
+  if not (
+      HAS_TTS and os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 400
+  ):
+    return []
+  wav_tmp = os.path.join(work_dir, f"{tag}_tmp.wav")
+  try:
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            mp3_path,
+            "-ar",
+            str(sr),
+            "-ac",
+            "1",
+            "-f",
+            "wav",
+            wav_tmp,
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    with wave.open(wav_tmp, "rb") as wf:
+      n = wf.getnframes()
+      raw = struct.unpack(f"<{n}h", wf.readframes(n))
+      return [(x / 32768.0) * 0.96 for x in raw]
+  except Exception as e:
+    print("WAV decode error:", tag, e)
+    return []
+
+
+def build_dynamic_question_track(
+    item: dict, out_wav: str, work_dir: str
+) -> tuple[str, float, float, float]:
+  sr = 44100
+  base_name = os.path.basename(out_wav)
+
+  q_speech = item.get("question_speech", "")
+  a_speech = item.get("answer_speech", item.get("answer_label", ""))
+
+  q_samples: list[float] = []
+  if HAS_TTS and q_speech.strip():
+    q_mp3 = os.path.join(work_dir, f"{base_name}_q.mp3")
+    asyncio.run(_tts_save(q_speech, q_mp3, rate="+0%", pitch="-2Hz"))
+    q_samples = _mp3_to_mono_samples(q_mp3, sr, work_dir, f"{base_name}_q")
+
+  intro_dur = max(3.0, len(q_samples) / sr + 0.25)
+
+  a_samples: list[float] = []
+  if HAS_TTS and a_speech.strip():
+    a_mp3 = os.path.join(work_dir, f"{base_name}_a.mp3")
+    asyncio.run(_tts_save(a_speech, a_mp3, rate="+0%", pitch="-2Hz"))
+    a_samples = _mp3_to_mono_samples(a_mp3, sr, work_dir, f"{base_name}_a")
+
+  buzz_dur = 0.8
+  ans_dur = max(2.2, buzz_dur + len(a_samples) / sr + 0.35)
+  timer_dur = 5.0
+  total_dur = intro_dur + timer_dur + ans_dur
+
+  total_n = int(total_dur * sr)
+  samples = [0.0] * total_n
+
+  for i, val in enumerate(q_samples):
+    if i < total_n:
+      samples[i] += val
+
+  timer_start = intro_dur
+  for sec_i in range(5):
+    t_s = timer_start + sec_i * 1.0
+    s_i = int(t_s * sr)
+    tick_len = int(0.06 * sr)
+    for k in range(tick_len):
+      pos = s_i + k
+      if pos < total_n:
+        t_rel = k / sr
+        env = math.exp(-k / (0.016 * sr))
+        snap = 0.34 * env * math.sin(2 * math.pi * 1650 * t_rel)
+        body = 0.16 * env * math.sin(2 * math.pi * 680 * t_rel)
+        samples[pos] += snap + body
+
+  ans_start = intro_dur + timer_dur
+  b_start_i = int(ans_start * sr)
+  b_len = int(buzz_dur * sr)
+  for k in range(b_len):
+    pos = b_start_i + k
+    if pos < total_n:
+      t_rel = k / sr
+      fade_in = min(1.0, k / (0.015 * sr))
+      fade_out = min(1.0, (b_len - k) / (0.06 * sr))
+      tone = 0.28 * math.sin(2 * math.pi * 660 * t_rel) + 0.11 * math.sin(
+          2 * math.pi * 1320 * t_rel
+      )
+      samples[pos] += tone * fade_in * fade_out
+
+  speech_a_start_i = int((ans_start + buzz_dur + 0.1) * sr)
+  for i, val in enumerate(a_samples):
+    pos = speech_a_start_i + i
+    if pos < total_n:
+      samples[pos] += val
+
+  with wave.open(out_wav, "wb") as out_wf:
+    out_wf.setnchannels(2)
+    out_wf.setsampwidth(2)
+    out_wf.setframerate(sr)
+    packed = bytearray()
+    for s in samples:
+      clamped = max(-0.98, min(0.98, s))
+      iv = int(clamped * 32767)
+      rec = struct.pack("<hh", iv, iv)
+      packed.extend(rec)
+    out_wf.writeframes(packed)
+
+  return out_wav, intro_dur, timer_dur, ans_dur
+
+
+def main():
+  work_dir = "quiz_build"
+  os.makedirs(work_dir, exist_ok=True)
+  print("Using Urdu font:", URDU_FONT_FILE)
+
+  quiz_items = generate_gemini_quiz()
+  video_parts = []
+  audio_parts = []
+  total_video_sec = 0.0
+
+  for q_idx, item in enumerate(quiz_items[:2]):
+    thumb_paths = []
+    for o_idx, (_, photo_query, urdu_label) in enumerate(item["options"][:3]):
+      p_file = os.path.join(work_dir, f"q{q_idx+1}_opt{o_idx+1}.jpg")
+      thumb_paths.append(fetch_option_photo(photo_query, urdu_label, p_file))
+
+    wav_p = os.path.join(work_dir, f"q{q_idx+1}_full.wav")
+    _, intro_dur, timer_dur, ans_dur = build_dynamic_question_track(
+        item, wav_p, work_dir
+    )
+    audio_parts.append(wav_p)
+    total_video_sec += intro_
