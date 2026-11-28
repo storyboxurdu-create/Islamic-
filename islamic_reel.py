@@ -95,8 +95,7 @@ def escape_drawtext(s: str) -> str:
   s = s.replace(":", "\\:")
   s = s.replace("'", "\\'")
   s = s.replace("%", "\\%")
-  s = s.replace("[", "\\[")
-  s = s.replace("]", "\\]")
+  s = s.replace("[", "\\[") s = s.replace("]", "\\]")
   return s
 
 
@@ -166,7 +165,7 @@ Return ONLY valid JSON list of 2 items:
   url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
   try:
     res = requests.post(
-        url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30
+        url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=25
     )
     res.raise_for_status()
     txt = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -202,7 +201,7 @@ Return ONLY valid JSON list of 2 items:
   return FALLBACK_QUIZ
 
 
-def _download_valid_img(url: str, out_path: str, timeout: int = 15) -> bool:
+def _download_valid_img(url: str, out_path: str, timeout: int = 12) -> bool:
   headers = {
       "User-Agent": (
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -300,7 +299,7 @@ def fetch_option_photo(query: str, urdu_label: str, out_path: str) -> str:
           f"[https://pixabay.com/api/?key=](https://pixabay.com/api/?key=){api_key}"
           f"&q={quote(short_q)}&image_type=photo&safesearch=true&per_page=5"
       )
-      r = requests.get(url, timeout=12)
+      r = requests.get(url, timeout=10)
       r.raise_for_status()
       hits = r.json().get("hits", [])
       for hit in hits:
@@ -549,7 +548,7 @@ async def _tts_save(text: str, out_mp3: str, rate: str = "+0%", pitch: str = "-2
   for voice in ["ur-PK-AsadNeural", "ur-PK-UzmaNeural"]:
     try:
       comm = edge_tts.Communicate(text, voice=voice, rate=rate, pitch=pitch)
-      await comm.save(out_mp3)
+      await asyncio.wait_for(comm.save(out_mp3), timeout=20)
       if os.path.exists(out_mp3) and os.path.getsize(out_mp3) > 400:
         return
     except Exception as e:
@@ -625,4 +624,169 @@ def build_dynamic_question_track(
   timer_start = intro_dur
   for sec_i in range(5):
     t_s = timer_start + sec_i * 1.0
-    s_
+    s_i = int(t_s * sr)
+    tick_len = int(0.06 * sr)
+    for k in range(tick_len):
+      pos = s_i + k
+      if pos < total_n:
+        t_rel = k / sr
+        env = math.exp(-k / (0.016 * sr))
+        snap = 0.34 * env * math.sin(2 * math.pi * 1650 * t_rel)
+        body = 0.16 * env * math.sin(2 * math.pi * 680 * t_rel)
+        samples[pos] += snap + body
+
+  ans_start = intro_dur + timer_dur
+  b_start_i = int(ans_start * sr)
+  b_len = int(buzz_dur * sr)
+  for k in range(b_len):
+    pos = b_start_i + k
+    if pos < total_n:
+      t_rel = k / sr
+      fade_in = min(1.0, k / (0.015 * sr))
+      fade_out = min(1.0, (b_len - k) / (0.06 * sr))
+      tone = 0.28 * math.sin(2 * math.pi * 660 * t_rel) + 0.11 * math.sin(
+          2 * math.pi * 1320 * t_rel
+      )
+      samples[pos] += tone * fade_in * fade_out
+
+  speech_a_start_i = int((ans_start + buzz_dur + 0.1) * sr)
+  for i, val in enumerate(a_samples):
+    pos = speech_a_start_i + i
+    if pos < total_n:
+      samples[pos] += val
+
+  with wave.open(out_wav, "wb") as out_wf:
+    out_wf.setnchannels(2)
+    out_wf.setsampwidth(2)
+    out_wf.setframerate(sr)
+    packed = bytearray()
+    for s in samples:
+      clamped = max(-0.98, min(0.98, s))
+      iv = int(clamped * 32767)
+      rec = struct.pack("<hh", iv, iv)
+      packed.extend(rec)
+    out_wf.writeframes(packed)
+
+  return out_wav, intro_dur, timer_dur, ans_dur
+
+
+def main():
+  work_dir = os.path.abspath("quiz_build")
+  os.makedirs(work_dir, exist_ok=True)
+  print("Starting islamic_reel.py ->", FINAL_MP4)
+  print("Using Urdu font:", URDU_FONT_FILE)
+
+  quiz_items = generate_gemini_quiz()
+  print("Loaded quiz items:", len(quiz_items))
+
+  video_parts = []
+  audio_parts = []
+  total_video_sec = 0.0
+
+  for q_idx, item in enumerate(quiz_items[:2]):
+    print(f"Building Q{q_idx+1}...")
+    thumb_paths = []
+    for o_idx, (_, photo_query, urdu_label) in enumerate(item["options"][:3]):
+      p_file = os.path.join(work_dir, f"q{q_idx+1}_opt{o_idx+1}.jpg")
+      thumb_paths.append(fetch_option_photo(photo_query, urdu_label, p_file))
+
+    wav_p = os.path.join(work_dir, f"q{q_idx+1}_full.wav")
+    _, intro_dur, timer_dur, ans_dur = build_dynamic_question_track(
+        item, wav_p, work_dir
+    )
+    audio_parts.append(wav_p)
+    total_video_sec += intro_dur + timer_dur + ans_dur
+
+    slots = [
+        ("q_intro", intro_dur, None, False),
+        ("t_5", 1.0, 5, False),
+        ("t_4", 1.0, 4, False),
+        ("t_3", 1.0, 3, False),
+        ("t_2", 1.0, 2, False),
+        ("t_1", 1.0, 1, False),
+        ("t_ans", ans_dur, None, True),
+    ]
+
+    for tag, dur, t_num, is_ans in slots:
+      base_png = os.path.join(work_dir, f"q{q_idx+1}_{tag}_base.png")
+      mp4_p = os.path.join(work_dir, f"q{q_idx+1}_{tag}.mp4")
+      render_base_card_png(
+          item, thumb_paths, base_png, timer_num=t_num, show_answer=is_ans
+      )
+      render_slot_clip_with_ffmpeg(
+          base_png, item, dur, mp4_p, show_answer=is_ans
+      )
+      video_parts.append(mp4_p)
+
+  v_list = os.path.join(work_dir, "v_list.txt")
+  with open(v_list, "w", encoding="utf-8") as f:
+    for vp in video_parts:
+      f.write(f"file '{vp}'\n")
+
+  a_list = os.path.join(work_dir, "a_list.txt")
+  with open(a_list, "w", encoding="utf-8") as f:
+    for ap in audio_parts:
+      f.write(f"file '{ap}'\n")
+
+  merged_v = os.path.join(work_dir, "merged_v.mp4")
+  merged_a = os.path.join(work_dir, "merged_a.wav")
+
+  run_cmd([
+      "ffmpeg",
+      "-y",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      v_list,
+      "-c",
+      "copy",
+      merged_v,
+  ])
+  run_cmd([
+      "ffmpeg",
+      "-y",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      a_list,
+      "-c",
+      "copy",
+      merged_a,
+  ])
+
+  final_dur = min(59.0, total_video_sec)
+  run_cmd([
+      "ffmpeg",
+      "-y",
+      "-i",
+      merged_v,
+      "-i",
+      merged_a,
+      "-t",
+      f"{final_dur:.2f}",
+      "-map",
+      "0:v",
+      "-map",
+      "1:a",
+      "-c:v",
+      "copy",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      FINAL_MP4,
+  ])
+
+  save_history([x["question"] for x in quiz_items[:2]])
+  print(
+      f"Successfully built {FINAL_MP4} ({final_dur:.1f}s,"
+      f" {os.path.getsize(FINAL_MP4)} bytes)"
+  )
+
+
+if __name__ == "__main__":
+  main()
