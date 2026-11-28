@@ -91,12 +91,13 @@ def get_latin_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def escape_drawtext(s: str) -> str:
-  s = s.replace("\\", "\\\\")
-  s = s.replace(":", "\\:")
-  s = s.replace("'", "\\'")
-  s = s.replace("%", "\\%")
-  s = s.replace("[", "\\[") s = s.replace("]", "\\]")
-  return s
+  return (
+      s.replace("\\", "\\\\")
+      .replace(":", "\\:")
+      .replace("'", "\\'")
+      .replace("%", "\\%")
+      .replace("[", "\\[") .replace("]", "\\]")
+  )
 
 
 def run_cmd(cmd: list[str]):
