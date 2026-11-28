@@ -95,7 +95,8 @@ def escape_drawtext(s: str) -> str:
   s = s.replace(":", "\\:")
   s = s.replace("'", "\\'")
   s = s.replace("%", "\\%")
-  s = s.replace("[", "\\[") s = s.replace("]", "\\]")
+  s = s.replace("[", "\\[")
+  s = s.replace("]", "\\]")
   return s
 
 
@@ -624,37 +625,4 @@ def build_dynamic_question_track(
   timer_start = intro_dur
   for sec_i in range(5):
     t_s = timer_start + sec_i * 1.0
-    s_i = int(t_s * sr)
-    tick_len = int(0.06 * sr)
-    for k in range(tick_len):
-      pos = s_i + k
-      if pos < total_n:
-        t_rel = k / sr
-        env = math.exp(-k / (0.016 * sr))
-        snap = 0.34 * env * math.sin(2 * math.pi * 1650 * t_rel)
-        body = 0.16 * env * math.sin(2 * math.pi * 680 * t_rel)
-        samples[pos] += snap + body
-
-  ans_start = intro_dur + timer_dur
-  b_start_i = int(ans_start * sr)
-  b_len = int(buzz_dur * sr)
-  for k in range(b_len):
-    pos = b_start_i + k
-    if pos < total_n:
-      t_rel = k / sr
-      fade_in = min(1.0, k / (0.015 * sr))
-      fade_out = min(1.0, (b_len - k) / (0.06 * sr))
-      tone = 0.28 * math.sin(2 * math.pi * 660 * t_rel) + 0.11 * math.sin(
-          2 * math.pi * 1320 * t_rel
-      )
-      samples[pos] += tone * fade_in * fade_out
-
-  speech_a_start_i = int((ans_start + buzz_dur + 0.1) * sr)
-  for i, val in enumerate(a_samples):
-    pos = speech_a_start_i + i
-    if pos < total_n:
-      samples[pos] += val
-
-  with wave.open(out_wav, "wb") as out_wf:
-    out_wf.setnchannels(2)
-    out_wf.setsam
+    s_
