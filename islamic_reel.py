@@ -2,7 +2,6 @@ import asyncio
 import json
 import math
 import os
-import random
 import struct
 import subprocess
 from urllib.parse import quote
@@ -18,8 +17,8 @@ except ImportError:
   HAS_TTS = False
 
 W, H = 1080, 1920
-FINAL_MP4 = "final_islamic_short.mp4"
-HISTORY_FILE = "islamic_history.json"
+FINAL_MP4 = os.path.abspath("final_islamic_short.mp4")
+HISTORY_FILE = os.path.abspath("islamic_history.json")
 
 FALLBACK_QUIZ = [
     {
@@ -96,9 +95,16 @@ def escape_drawtext(s: str) -> str:
   s = s.replace(":", "\\:")
   s = s.replace("'", "\\'")
   s = s.replace("%", "\\%")
-  s = s.replace("[", "\\[")
-  s = s.replace("]", "\\]")
+  s = s.replace("[", "\\[") s = s.replace("]", "\\]")
   return s
+
+
+def run_cmd(cmd: list[str]):
+  res = subprocess.run(cmd, capture_output=True, text=True)
+  if res.returncode != 0:
+    print("CMD FAILED:", " ".join(cmd))
+    print("STDERR:", res.stderr[-1500:])
+    raise RuntimeError(f"Command failed with exit code {res.returncode}")
 
 
 def load_history() -> list[str]:
@@ -517,30 +523,25 @@ def render_slot_clip_with_ffmpeg(
     )
 
   vf_expr = ",".join(filters)
-  subprocess.run(
-      [
-          "ffmpeg",
-          "-y",
-          "-loop",
-          "1",
-          "-i",
-          base_png,
-          "-t",
-          f"{dur:.3f}",
-          "-vf",
-          vf_expr,
-          "-c:v",
-          "libx264",
-          "-preset",
-          "fast",
-          "-crf",
-          "22",
-          out_mp4,
-      ],
-      check=True,
-      stdout=subprocess.DEVNULL,
-      stderr=subprocess.DEVNULL,
-  )
+  run_cmd([
+      "ffmpeg",
+      "-y",
+      "-loop",
+      "1",
+      "-i",
+      base_png,
+      "-t",
+      f"{dur:.3f}",
+      "-vf",
+      vf_expr,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-crf",
+      "22",
+      out_mp4,
+  ])
 
 
 async def _tts_save(text: str, out_mp3: str, rate: str = "+0%", pitch: str = "-2Hz"):
@@ -563,24 +564,19 @@ def _mp3_to_mono_samples(
     return []
   wav_tmp = os.path.join(work_dir, f"{tag}_tmp.wav")
   try:
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            mp3_path,
-            "-ar",
-            str(sr),
-            "-ac",
-            "1",
-            "-f",
-            "wav",
-            wav_tmp,
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    run_cmd([
+        "ffmpeg",
+        "-y",
+        "-i",
+        mp3_path,
+        "-ar",
+        str(sr),
+        "-ac",
+        "1",
+        "-f",
+        "wav",
+        wav_tmp,
+    ])
     with wave.open(wav_tmp, "rb") as wf:
       n = wf.getnframes()
       raw = struct.unpack(f"<{n}h", wf.readframes(n))
@@ -661,38 +657,4 @@ def build_dynamic_question_track(
 
   with wave.open(out_wav, "wb") as out_wf:
     out_wf.setnchannels(2)
-    out_wf.setsampwidth(2)
-    out_wf.setframerate(sr)
-    packed = bytearray()
-    for s in samples:
-      clamped = max(-0.98, min(0.98, s))
-      iv = int(clamped * 32767)
-      rec = struct.pack("<hh", iv, iv)
-      packed.extend(rec)
-    out_wf.writeframes(packed)
-
-  return out_wav, intro_dur, timer_dur, ans_dur
-
-
-def main():
-  work_dir = "quiz_build"
-  os.makedirs(work_dir, exist_ok=True)
-  print("Using Urdu font:", URDU_FONT_FILE)
-
-  quiz_items = generate_gemini_quiz()
-  video_parts = []
-  audio_parts = []
-  total_video_sec = 0.0
-
-  for q_idx, item in enumerate(quiz_items[:2]):
-    thumb_paths = []
-    for o_idx, (_, photo_query, urdu_label) in enumerate(item["options"][:3]):
-      p_file = os.path.join(work_dir, f"q{q_idx+1}_opt{o_idx+1}.jpg")
-      thumb_paths.append(fetch_option_photo(photo_query, urdu_label, p_file))
-
-    wav_p = os.path.join(work_dir, f"q{q_idx+1}_full.wav")
-    _, intro_dur, timer_dur, ans_dur = build_dynamic_question_track(
-        item, wav_p, work_dir
-    )
-    audio_parts.append(wav_p)
-    total_video_sec += intro_
+    out_wf.setsam
